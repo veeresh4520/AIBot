@@ -251,8 +251,21 @@ export function FieldSensorsPage() {
       }
     } catch (err) {
       if (err instanceof Error && err.name !== 'NotFoundError') {
-        alert(`Serial connection failed: ${err.message}`);
+        const msg = err.message || '';
+        if (msg.includes('open') || msg.includes('Failed to open')) {
+          alert(
+            'Failed to open serial port!\n\n' +
+            'Common Causes & Fixes:\n' +
+            '1. Selected a Bluetooth port: In the browser popup, select the USB COM port (e.g. "USB-SERIAL CH340" or "Arduino Uno"), NOT "Standard Serial over Bluetooth link".\n\n' +
+            '2. Arduino IDE Serial Monitor is open: CLOSE the Serial Monitor tab inside the Arduino IDE (Windows gives exclusive access to one program at a time).\n\n' +
+            '3. USB Cable: Use a USB DATA cable (many phone charging cables are charge-only without data lines).\n\n' +
+            '4. Driver: If using a clone Arduino Uno/Nano, install the CH340 USB driver (CH341SER).'
+          );
+        } else {
+          alert(`Serial connection failed: ${err.message}`);
+        }
       }
+      setIsSerialConnected(false);
     }
   };
 
