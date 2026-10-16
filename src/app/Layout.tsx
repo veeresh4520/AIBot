@@ -40,6 +40,7 @@ export function Layout() {
         <footer className="px-4 md:px-8 py-6 pb-24 md:pb-6 border-t border-border text-xs text-muted-foreground">
           <nav aria-label="Legal and information" className="flex flex-wrap gap-x-4 gap-y-2 max-w-4xl mx-auto">
             <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
+            <Link to="/sensors" className="hover:text-foreground transition-colors">Field Sensors</Link>
             <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
             <Link to="/storage" className="hover:text-foreground transition-colors">Cookies &amp; Storage</Link>

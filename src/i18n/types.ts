@@ -22,6 +22,7 @@ export interface TranslationDictionary {
   navHome: string;
   navAsk: string;
   navLibrary: string;
+  navSensors: string;
   navAbout: string;
   installApp: string;
   installAppPwa: string;

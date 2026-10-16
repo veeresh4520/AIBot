@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, MessageCircleQuestion, BookOpen, Info, Leaf, Download, WifiOff } from 'lucide-react';
+import { Home, MessageCircleQuestion, BookOpen, Activity, Info, Leaf, Download, WifiOff } from 'lucide-react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { InstallModal } from './InstallModal';
 import { LanguageSelector } from './LanguageSelector';
@@ -22,6 +22,7 @@ export function NavBar() {
     { to: '/', label: t.navHome, icon: Home },
     { to: '/ask', label: t.navAsk, icon: MessageCircleQuestion },
     { to: '/library', label: t.navLibrary, icon: BookOpen },
+    { to: '/sensors', label: t.navSensors, icon: Activity },
     { to: '/about', label: t.navAbout, icon: Info },
   ];
 

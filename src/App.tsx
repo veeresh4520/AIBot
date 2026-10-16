@@ -9,6 +9,7 @@ import { EvidenceDetailPage } from './pages/EvidenceDetailPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { PackDetailPage } from './pages/PackDetailPage';
 import { AboutPage } from './pages/AboutPage';
+import { FieldSensorsPage } from './pages/FieldSensorsPage';
 import { PrivacyPolicyPage, TermsPage, StoragePolicyPage } from './pages/LegalPages';
 import { ensureOfflineReadiness } from './services/offlineStorage';
 
@@ -29,6 +30,7 @@ function App() {
           <Route path="evidence/:id" element={<EvidenceDetailPage />} />
           <Route path="library" element={<LibraryPage />} />
           <Route path="library/:id" element={<PackDetailPage />} />
+          <Route path="sensors" element={<FieldSensorsPage />} />
           <Route path="about" element={<AboutPage />} />
           <Route path="privacy" element={<PrivacyPolicyPage />} />
           <Route path="terms" element={<TermsPage />} />
