@@ -159,6 +159,28 @@ export function InstallModal({
                   <span>{t.aboutPwaAndroidStep4}</span>
                 </li>
               </ol>
+
+              {/* Direct APK Download Option */}
+              <div className="mt-4 p-3.5 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                    <span>Direct Android APK (.apk)</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-bold">Native</span>
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                    Install native app without browser prompt
+                  </p>
+                </div>
+                <a
+                  href="https://github.com/veeresh4520/AIBot/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-semibold hover:bg-primary-dark transition-colors shadow-xs"
+                >
+                  <Download size={13} aria-hidden="true" />
+                  <span>Get APK</span>
+                </a>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">

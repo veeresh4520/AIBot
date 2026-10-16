@@ -18,6 +18,21 @@ function App() {
   useEffect(() => {
     // Automatically prepare and pre-warm on-device botanical AI model & knowledge packs
     void ensureOfflineReadiness();
+
+    // Listen for Service Worker updates to auto-refresh mobile PWA when new version deploys
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      let refreshing = false;
+      const onControllerChange = () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+      return () => {
+        navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+      };
+    }
   }, []);
 
   const routerBasename = useMemo(() => {

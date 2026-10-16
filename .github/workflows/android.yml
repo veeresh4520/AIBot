@@ -1,0 +1,84 @@
+name: Build & Package Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: 'android-build'
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install NPM dependencies
+        run: npm ci || npm install
+
+      - name: Build mobile web bundle
+        run: npm run build:mobile
+
+      - name: Sync web assets into native Android project
+        run: npx cap sync android
+
+      - name: Set up Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission to Gradle wrapper
+        run: chmod +x android/gradlew
+
+      - name: Build Android Debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK as GitHub Action Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PlantDoctor-Android-Debug-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish APK to GitHub Releases (mobile-latest)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mobile-latest
+          name: "Plant Doctor Android Mobile App (Latest Build)"
+          body: |
+            ## 📱 Plant Doctor Mobile APK (Automatic GitHub Build)
+            
+            This Android application is automatically built from commit `${{ github.sha }}` on branch `${{ github.ref_name }}`.
+
+            ### How to Install on your Phone:
+            1. Download **`app-debug.apk`** below directly to your Android device.
+            2. When prompted by your phone or file manager, enable **"Allow installation from unknown sources"**.
+            3. Tap **Install** or **Update** to run the latest Plant Doctor build with all offline botanical diagnostics and field sensor monitoring.
+          files: android/app/build/outputs/apk/debug/app-debug.apk
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true

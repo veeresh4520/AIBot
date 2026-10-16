@@ -1,149 +1,226 @@
-/*
-  Plant Doctor - 5-Sensor Field Telemetry Node
-  Target Hardware: Arduino Uno, Nano, Mega, or ESP32
-  
-  Sensors Connected:
-  1. Temperature & Humidity: DHT11 or DHT22 (Pin D2)
-  2. Soil Moisture: Capacitive / Resistive Soil Sensor (Pin A0)
-  3. Water Level: Ultrasonic HC-SR04 (Trig: D4, Echo: D5) OR Analog Depth Sensor (Pin A1)
-  4. Motion Detection: PIR Sensor HC-SR501 (Pin D3)
-  
-  Baud Rate: 115200 bps
-  Output: Formatted JSON line every 3 seconds
-  Compatible directly with:
-  - Plant Doctor Web Serial API ("Connect USB Hardware" in browser)
-  - backend_sensor/serial_receiver.py
-*/
-
 #include <DHT.h>
+#include <RH_ASK.h>
+#include <SPI.h>
 
-// ================= PIN CONFIGURATION =================
-#define DHTPIN 2               // Digital Pin for DHT11 / DHT22
-#define DHTTYPE DHT11          // Change to DHT22 if using white DHT22 sensor
+// Sensor pins
+#define DHT_PIN 4
+#define DHT_TYPE DHT11
 
-#define PIR_PIN 3              // Digital Pin for PIR Motion Sensor
-#define SOIL_PIN A0            // Analog Pin for Soil Moisture Sensor
+#define SOIL_PIN 34
+#define PIR_PIN 27
 
-// Water Level Sensor Option 1: Ultrasonic Sensor (HC-SR04)
-#define TRIG_PIN 4             // HC-SR04 Trig Pin
-#define ECHO_PIN 5             // HC-SR04 Echo Pin
-#define TANK_DEPTH_CM 100.0    // Total height of tank/well in cm (adjust to your tank)
+#define TRIG_PIN 5
+#define ECHO_PIN 18
 
-// Water Level Sensor Option 2: Analog Submersible Strip (Optional fallback on A1)
-#define WATER_ANALOG_PIN A1
-#define USE_ULTRASONIC_FOR_WATER true  // Set false if using analog water strip
+// Output pins
+#define BUZZER_PIN 25
+#define GREEN_LED 19
+#define RED_LED 21
+#define YELLOW_LED 22
 
-// Unique identifier for this field station
-const char* DEVICE_ID = "FIELD_01";
+// RF transmitter DATA pin
+#define RF_TX_PIN 23
 
-// ================= SENSOR OBJECTS =================
-DHT dht(DHTPIN, DHTTYPE);
+// Example thresholds: calibrate for your sensors
+#define TEMP_THRESHOLD 35.0
+#define DIST_THRESHOLD 100.0
 
-// Calibration constants for Soil Moisture (0-1023 ADC values)
-// Air (Dry) is typically ~800-1020, Water (Wet) is ~300-450
-const int SOIL_DRY_ADC = 850;
-const int SOIL_WET_ADC = 350;
+// Replace these with your measured soil readings
+#define SOIL_DRY_VALUE 3000
+#define SOIL_WET_VALUE 1500
 
-void setup() {
-  // Initialize USB Serial communication at 115200 baud
-  Serial.begin(115200);
-  while (!Serial && millis() < 3000); // Wait for serial port to connect
+DHT dht(DHT_PIN, DHT_TYPE);
 
-  // Pin modes
-  pinMode(PIR_PIN, INPUT);
-  pinMode(TRIG_PIN, OUTPUT);
-  pinMode(ECHO_PIN, INPUT);
+// RF transmitter: speed, RX unused, TX pin, PTT unused
+RH_ASK rf(2000, -1, RF_TX_PIN, -1);
+bool rfReady = false;
+
+float readDistance() {
   digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(3);
 
-  // Initialize DHT sensor
-  dht.begin();
-
-  // Print startup notification
-  Serial.println(F("{\"status\":\"ready\",\"message\":\"Plant Doctor Sensor Node Initialized\"}"));
-}
-
-// Function to read water level percentage using HC-SR04 ultrasonic sensor
-float readWaterLevelUltrasonic() {
-  digitalWrite(TRIG_PIN, LOW);
-  delayMicroseconds(2);
   digitalWrite(TRIG_PIN, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIG_PIN, LOW);
 
-  long duration = pulseIn(ECHO_PIN, HIGH, 30000); // 30ms timeout (~5m range)
-  if (duration <= 0) {
-    // If sensor disconnected, return safe default 75%
-    return 75.0;
+  unsigned long duration = pulseIn(ECHO_PIN, HIGH, 30000);
+
+  if (duration == 0) {
+    return -1;
   }
 
-  // Calculate distance in cm (Speed of sound: 0.0343 cm/us)
-  float distanceCm = (duration * 0.0343) / 2.0;
-
-  // Calculate water level percentage based on tank depth
-  // When tank is full, distance to water is ~5cm (100%)
-  // When tank is empty, distance is TANK_DEPTH_CM (0%)
-  float waterLevelPct = ((TANK_DEPTH_CM - distanceCm) / TANK_DEPTH_CM) * 100.0;
-  if (waterLevelPct < 0.0) waterLevelPct = 0.0;
-  if (waterLevelPct > 100.0) waterLevelPct = 100.0;
-  return waterLevelPct;
+  return duration * 0.0343 / 2.0;
 }
 
-// Function to read water level percentage using analog depth strip
-float readWaterLevelAnalog() {
-  int raw = analogRead(WATER_ANALOG_PIN);
-  float pct = (raw / 700.0) * 100.0;
-  if (pct < 0.0) pct = 0.0;
-  if (pct > 100.0) pct = 100.0;
-  return pct;
-}
-
-// Function to read soil moisture percentage (0% to 100%)
-float readSoilMoisture() {
+int readSoilMoisture() {
   int raw = analogRead(SOIL_PIN);
-  // Map raw ADC (Wet=100%, Dry=0%)
-  float moisture = map(raw, SOIL_DRY_ADC, SOIL_WET_ADC, 0, 100);
-  if (moisture < 0.0) moisture = 0.0;
-  if (moisture > 100.0) moisture = 100.0;
-  return moisture;
+
+  int percent = map(
+    raw, SOIL_DRY_VALUE, SOIL_WET_VALUE, 0, 100
+  );
+
+  return constrain(percent, 0, 100);
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(PIR_PIN, INPUT);
+  pinMode(SOIL_PIN, INPUT);
+
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
+  pinMode(RED_LED, OUTPUT);
+  pinMode(YELLOW_LED, OUTPUT);
+
+  digitalWrite(TRIG_PIN, LOW);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  analogReadResolution(12);
+  dht.begin();
+
+  // Initialize RF transmitter
+  if (rf.init()) {
+    rfReady = true;
+    Serial.println("RF transmitter ready");
+  } else {
+    Serial.println("RF transmitter initialization failed");
+  }
+
+  Serial.println("Smart Agriculture Monitoring System");
+  Serial.println("Allow the PIR sensor to stabilize.");
 }
 
 void loop() {
-  // 1. Read Temperature and Humidity from DHT
-  float humidity = dht.readHumidity();
   float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
 
-  // Fallback if sensor fails or is disconnected
-  if (isnan(humidity) || isnan(temperature)) {
-    temperature = 26.5; // default fallback
-    humidity = 58.0;
+  int soilRaw = analogRead(SOIL_PIN);
+  int soilPercent = readSoilMoisture();
+
+  int motion = digitalRead(PIR_PIN);
+  float distance = readDistance();
+
+  bool soilDry = soilPercent < 35;
+
+  bool highTemperature =
+    !isnan(temperature) &&
+    temperature >= TEMP_THRESHOLD;
+
+  bool nearbyObject =
+    distance > 0 && distance < DIST_THRESHOLD;
+
+  bool alert = (motion == HIGH) || nearbyObject;
+
+  // Reset outputs
+  digitalWrite(GREEN_LED, LOW);
+  digitalWrite(RED_LED, LOW);
+  digitalWrite(YELLOW_LED, LOW);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  // Soil condition
+  if (soilDry) {
+    digitalWrite(RED_LED, HIGH);
+  } else {
+    digitalWrite(GREEN_LED, HIGH);
   }
 
-  // 2. Read Soil Moisture
-  float soilMoisture = readSoilMoisture();
+  // Temperature warning
+  if (highTemperature) {
+    digitalWrite(YELLOW_LED, HIGH);
+  }
 
-  // 3. Read Water Level
-  float waterLevel = USE_ULTRASONIC_FOR_WATER ? readWaterLevelUltrasonic() : readWaterLevelAnalog();
+  // Motion / nearby object alert
+  if (alert) {
+    digitalWrite(RED_LED, HIGH);
+    digitalWrite(BUZZER_PIN, HIGH);
+  }
 
-  // 4. Read Perimeter Motion (PIR sensor: HIGH when motion detected)
-  int motionState = digitalRead(PIR_PIN);
-  bool motionDetected = (motionState == HIGH);
+  // Display sensor data
+  Serial.println("\n--- Sensor Readings ---");
 
-  // 5. Send Clean JSON Packet over USB Serial
-  Serial.print(F("{\"device_id\":\""));
-  Serial.print(DEVICE_ID);
-  Serial.print(F("\",\"temperature\":"));
-  Serial.print(temperature, 1);
+  if (!isnan(temperature)) {
+    Serial.print("Temperature: ");
+    Serial.print(temperature);
+    Serial.println(" C");
+  } else {
+    Serial.println("Temperature: Sensor error");
+  }
+
+  if (!isnan(humidity)) {
+    Serial.print("Humidity: ");
+    Serial.print(humidity);
+    Serial.println(" %");
+  } else {
+    Serial.println("Humidity: Sensor error");
+  }
+
+  Serial.print("Soil raw: ");
+  Serial.println(soilRaw);
+
+  Serial.print("Soil moisture: ");
+  Serial.print(soilPercent);
+  Serial.println(" % (estimated)");
+
+  Serial.print("Motion: ");
+  Serial.println(motion == HIGH ? "DETECTED" : "None");
+
+  Serial.print("Distance: ");
+  if (distance >= 0) {
+    Serial.print(distance);
+    Serial.println(" cm");
+  } else {
+    Serial.println("No echo");
+  }
+
+  Serial.print("Field alert: ");
+  Serial.println(alert ? "ACTIVE" : "NORMAL");
+
+  Serial.println("-----------------------");
+
+  // ADDED: Transmit sensor readings wirelessly
+  if (rfReady) {
+    char message[RH_ASK_MAX_MESSAGE_LEN];
+    // -99 indicates a DHT temperature error
+    // -1 indicates a DHT humidity error or no distance echo
+    float txTemp = isnan(temperature) ? -99.0 : temperature;
+    float txHumidity = isnan(humidity) ? -1.0 : humidity;
+
+    snprintf(
+      message,
+      sizeof(message),
+      "%.1f,%.1f,%d,%d,%.1f",
+      txTemp,
+      txHumidity,
+      soilPercent,
+      motion,
+      distance
+    );
+
+    rf.send((uint8_t *)message, strlen(message));
+    rf.waitPacketSent();
+
+    Serial.print("RF transmitted: ");
+    Serial.println(message);
+  }
+
+  // PlantDoctor Web Dashboard JSON telemetry output
+  float waterPct = (distance >= 0) ? constrain(((40.0 - distance) / 35.0) * 100.0, 0.0, 100.0) : 0.0;
+  Serial.print(F("{\"device_id\":\"FIELD_01\",\"temperature\":"));
+  Serial.print(!isnan(temperature) ? temperature : 26.0, 1);
   Serial.print(F(",\"humidity\":"));
-  Serial.print(humidity, 1);
+  Serial.print(!isnan(humidity) ? humidity : 55.0, 1);
   Serial.print(F(",\"soil_moisture\":"));
-  Serial.print(soilMoisture, 1);
+  Serial.print(soilPercent);
   Serial.print(F(",\"water_level\":"));
-  Serial.print(waterLevel, 1);
+  Serial.print(waterPct, 1);
   Serial.print(F(",\"motion\":"));
-  Serial.print(motionDetected ? F("true") : F("false"));
+  Serial.print((motion == HIGH) ? F("true") : F("false"));
   Serial.print(F(",\"is_simulated\":false}"));
-  Serial.println(); // Trailing newline is critical for serial stream readers
+  Serial.println();
 
-  // Wait 1 second before next telemetry packet for fast, responsive live streaming
-  delay(1000);
+  delay(2000);
 }

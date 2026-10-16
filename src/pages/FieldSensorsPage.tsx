@@ -46,7 +46,7 @@ function parseIncomingSerialLine(line: string): Partial<SensorReading> | null {
   const trimmed = line.trim();
   if (!trimmed) return null;
 
-  // 1. JSON or embedded JSON extraction
+  // 1. JSON or embedded JSON extraction (e.g. {"temperature":26.5,...})
   const startIdx = trimmed.indexOf('{');
   const endIdx = trimmed.lastIndexOf('}');
   if (startIdx !== -1 && endIdx > startIdx) {
@@ -54,7 +54,6 @@ function parseIncomingSerialLine(line: string): Partial<SensorReading> | null {
       const jsonStr = trimmed.substring(startIdx, endIdx + 1);
       const data = JSON.parse(jsonStr);
 
-      // Verify that this packet contains actual sensor metrics rather than just a boot/status message
       const hasSensorField =
         data.temperature !== undefined ||
         data.temp !== undefined ||
@@ -63,54 +62,103 @@ function parseIncomingSerialLine(line: string): Partial<SensorReading> | null {
         data.soil_moisture !== undefined ||
         data.soil !== undefined ||
         data.water_level !== undefined ||
-        data.water !== undefined;
+        data.water !== undefined ||
+        data.motion !== undefined;
 
       if (!hasSensorField) {
         return null;
       }
 
-      return {
-        device_id: data.device_id || 'USB_ARDUINO_01',
-        temperature: Number(data.temperature ?? data.temp ?? 25.0),
-        humidity: Number(data.humidity ?? data.hum ?? 55.0),
-        soil_moisture: Number(data.soil_moisture ?? data.soil ?? 50.0),
-        water_level: Number(data.water_level ?? data.water ?? 75.0),
-        motion: Boolean(data.motion),
+      const out: Partial<SensorReading> = {
+        device_id: data.device_id || 'HARDWARE_NODE_01',
       };
+      if (data.temperature !== undefined || data.temp !== undefined) {
+        out.temperature = Number(data.temperature ?? data.temp);
+      }
+      if (data.humidity !== undefined || data.hum !== undefined) {
+        out.humidity = Number(data.humidity ?? data.hum);
+      }
+      if (data.soil_moisture !== undefined || data.soil !== undefined) {
+        out.soil_moisture = Number(data.soil_moisture ?? data.soil);
+      }
+      if (data.water_level !== undefined || data.water !== undefined) {
+        out.water_level = Number(data.water_level ?? data.water);
+      }
+      if (data.motion !== undefined) {
+        out.motion = Boolean(data.motion);
+      }
+      return out;
     } catch {
       // Fall through to text formats
     }
   }
 
-  // 2. Key-Value format (e.g. "Temp: 26.5 Hum: 58.0 Soil: 52 Water: 75 Motion: 0")
-  const tempMatch = trimmed.match(/(?:temp(?:erature)?|t)\s*[:=]\s*([\d.]+)/i);
-  const humMatch = trimmed.match(/(?:hum(?:idity)?|h)\s*[:=]\s*([\d.]+)/i);
-  const soilMatch = trimmed.match(/(?:soil(?:_moisture)?|s)\s*[:=]\s*([\d.]+)/i);
-  const waterMatch = trimmed.match(/(?:water(?:_level)?|w)\s*[:=]\s*([\d.]+)/i);
-  const motionMatch = trimmed.match(/(?:motion|pir|m)\s*[:=]\s*([01]|true|false)/i);
+  // 2. CSV format (e.g. "RF transmitted: 28.5,55.0,60,0,15.2" or "28.5,55.0,60,0,15.2")
+  const csvMatch = trimmed.match(/(?:(?:^|[:\s])\s*)(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*([01]|true|false)\s*,\s*(-?\d+(?:\.\d+)?)/i);
+  if (csvMatch) {
+    const rawTemp = parseFloat(csvMatch[1]);
+    const rawHum = parseFloat(csvMatch[2]);
+    const rawSoil = parseFloat(csvMatch[3]);
+    const rawMotion = csvMatch[4] === '1' || csvMatch[4].toLowerCase() === 'true';
+    const rawDist = parseFloat(csvMatch[5]);
 
-  if (tempMatch || humMatch || soilMatch) {
-    return {
-      device_id: 'USB_ARDUINO_01',
-      temperature: tempMatch ? parseFloat(tempMatch[1]) : 25.0,
-      humidity: humMatch ? parseFloat(humMatch[1]) : 55.0,
-      soil_moisture: soilMatch ? parseFloat(soilMatch[1]) : 50.0,
-      water_level: waterMatch ? parseFloat(waterMatch[1]) : 75.0,
-      motion: motionMatch ? (motionMatch[1] === '1' || motionMatch[1].toLowerCase() === 'true') : false,
+    const out: Partial<SensorReading> = {
+      device_id: 'HARDWARE_NODE_01',
+      motion: rawMotion,
     };
+    if (rawTemp > -50 && rawTemp < 100) out.temperature = rawTemp;
+    if (rawHum >= 0 && rawHum <= 100) out.humidity = rawHum;
+    if (rawSoil >= 0 && rawSoil <= 100) out.soil_moisture = rawSoil;
+    if (rawDist >= 0) {
+      out.water_level = Math.max(0, Math.min(100, Math.round(((40.0 - rawDist) / 35.0) * 100)));
+    }
+    return out;
   }
 
-  // 3. CSV format (e.g. "26.5,58.0,52.0,75.0,0")
-  const parts = trimmed.split(',').map((p) => p.trim());
-  if (parts.length >= 2 && !isNaN(Number(parts[0])) && !isNaN(Number(parts[1]))) {
-    return {
-      device_id: 'USB_ARDUINO_01',
-      temperature: parseFloat(parts[0]),
-      humidity: parseFloat(parts[1]),
-      soil_moisture: parts[2] && !isNaN(Number(parts[2])) ? parseFloat(parts[2]) : 50.0,
-      water_level: parts[3] && !isNaN(Number(parts[3])) ? parseFloat(parts[3]) : 75.0,
-      motion: parts[4] ? (parts[4] === '1' || parts[4].toLowerCase() === 'true') : false,
-    };
+  // 3. Multi-line Key-Value prints (from ESP32 / Arduino line-by-line Serial.println)
+  const partial: Partial<SensorReading> = {};
+
+  // Temperature (e.g. "Temperature: 28.5 C")
+  const tempMatch = trimmed.match(/(?:temp(?:erature)?|t)\s*[:=]\s*(-?[\d.]+)/i);
+  if (tempMatch && !isNaN(parseFloat(tempMatch[1])) && parseFloat(tempMatch[1]) > -50) {
+    partial.temperature = parseFloat(tempMatch[1]);
+  }
+
+  // Humidity (e.g. "Humidity: 55.0 %")
+  const humMatch = trimmed.match(/(?:hum(?:idity)?|h)\s*[:=]\s*([\d.]+)/i);
+  if (humMatch && !isNaN(parseFloat(humMatch[1]))) {
+    partial.humidity = parseFloat(humMatch[1]);
+  }
+
+  // Soil Moisture (e.g. "Soil moisture: 60 % (estimated)" or "Soil: 60")
+  const soilMatch = trimmed.match(/(?:soil\s*(?:moisture)?|s)\s*[:=]\s*([\d.]+)/i);
+  if (soilMatch && !isNaN(parseFloat(soilMatch[1]))) {
+    partial.soil_moisture = parseFloat(soilMatch[1]);
+  }
+
+  // Water Level directly in % (e.g. "Water level: 75%")
+  const waterMatch = trimmed.match(/(?:water\s*(?:level)?|w)\s*[:=]\s*([\d.]+)/i);
+  if (waterMatch && !isNaN(parseFloat(waterMatch[1]))) {
+    partial.water_level = parseFloat(waterMatch[1]);
+  }
+
+  // Ultrasonic Distance (e.g. "Distance: 15.2 cm") -> convert to % water reservoir
+  const distMatch = trimmed.match(/(?:dist(?:ance)?|d)\s*[:=]\s*([\d.]+)/i);
+  if (distMatch && !isNaN(parseFloat(distMatch[1]))) {
+    const d = parseFloat(distMatch[1]);
+    partial.water_level = Math.max(0, Math.min(100, Math.round(((40.0 - d) / 35.0) * 100)));
+  }
+
+  // Motion Detection (e.g. "Motion: DETECTED" or "Motion: None" or "alert: ACTIVE")
+  const motionMatch = trimmed.match(/(?:motion|pir|m|alert)\s*[:=]\s*(detected|active|none|normal|[01]|true|false)/i);
+  if (motionMatch) {
+    const val = motionMatch[1].toLowerCase();
+    partial.motion = val === '1' || val === 'true' || val === 'detected' || val === 'active';
+  }
+
+  if (Object.keys(partial).length > 0) {
+    partial.device_id = 'HARDWARE_NODE_01';
+    return partial;
   }
 
   return null;
@@ -149,6 +197,16 @@ export function FieldSensorsPage() {
   const serialPortRef = useRef<any>(null);
   const serialReaderRef = useRef<any>(null);
   const isSerialConnectedRef = useRef<boolean>(false);
+  const isLiveStreamRunningRef = useRef<boolean>(isLiveStreamRunning);
+  const latestReadingRef = useRef<SensorReading | null>(latestReading);
+
+  useEffect(() => {
+    isLiveStreamRunningRef.current = isLiveStreamRunning;
+  }, [isLiveStreamRunning]);
+
+  useEffect(() => {
+    latestReadingRef.current = latestReading;
+  }, [latestReading]);
 
   // Load telemetry from local Flask service
   const loadTelemetry = useCallback(async (isInitial = false) => {
@@ -169,10 +227,21 @@ export function FieldSensorsPage() {
           fetchLatestReading().catch(() => null),
           fetchReadingsHistory(30).catch(() => []),
         ]);
+
         if (latest) {
-          setLatestReading(latest);
+          if (!latest.is_simulated) {
+            // Real hardware telemetry arrived from LoRa receiver or local gateway!
+            setLatestReading(latest);
+            setIsLiveStreamRunning(false);
+          } else if (isInitial && !latestReadingRef.current) {
+            // On initial boot, if only simulated data exists in DB, display it and start live dynamic streaming
+            setLatestReading(latest);
+            setIsLiveStreamRunning(true);
+          } else if (!isLiveStreamRunningRef.current && !latestReadingRef.current) {
+            setLatestReading(latest);
+          }
         }
-        if (hist.length > 0) {
+        if (hist.length > 0 && !isLiveStreamRunningRef.current) {
           setHistory(hist);
         }
       }
@@ -190,12 +259,44 @@ export function FieldSensorsPage() {
     }
   }, [backendUrl, isHosted]);
 
-  // Initial load and continuous polling/streaming cycle
+  // Generate realistic organic drift for continuous simulated agricultural telemetry
+  const generateSimulatedDrift = useCallback((prev: SensorReading | null): SensorReading => {
+    const baseTemp = prev ? prev.temperature : 26.8;
+    const baseHum = prev ? prev.humidity : 58.0;
+    const baseSoil = prev?.soil_moisture ?? 52.0;
+    const baseWater = prev?.water_level ?? 74.0;
+
+    // Organic drift for realistic agricultural telemetry (micro-fluctuations)
+    const deltaTemp = (Math.random() - 0.48) * 0.4;
+    const deltaHum = (Math.random() - 0.50) * 0.8;
+    const deltaSoil = (Math.random() - 0.52) * 0.5;
+    const deltaWater = (Math.random() - 0.51) * 0.2;
+
+    const newTemp = Number(Math.max(16.0, Math.min(42.0, baseTemp + deltaTemp)).toFixed(1));
+    const newHum = Number(Math.max(25.0, Math.min(95.0, baseHum + deltaHum)).toFixed(1));
+    const newSoil = Number(Math.max(15.0, Math.min(95.0, baseSoil + deltaSoil)).toFixed(1));
+    const newWater = Number(Math.max(10.0, Math.min(100.0, baseWater + deltaWater)).toFixed(1));
+    const newMotion = Math.random() < 0.15;
+
+    return {
+      id: Date.now(),
+      device_id: prev?.device_id && prev.device_id.startsWith('SIM_') ? prev.device_id : 'SIM_FIELD_01',
+      temperature: newTemp,
+      humidity: newHum,
+      soil_moisture: newSoil,
+      water_level: newWater,
+      motion: newMotion,
+      is_simulated: true,
+      created_at: new Date().toISOString(),
+    };
+  }, []);
+
+  // Continuous polling / dynamic live streaming cycle
   useEffect(() => {
     let cancelled = false;
 
     // When hosted on GitHub Pages, seed with initial reading if completely empty
-    if (isHosted && !latestReading) {
+    if (isHosted && !latestReadingRef.current) {
       void triggerSimulatedReading().then((initial) => {
         if (!cancelled) {
           setLatestReading((prev) => prev ?? initial);
@@ -208,52 +309,47 @@ export function FieldSensorsPage() {
 
     if (autoRefresh) {
       pollIntervalRef.current = window.setInterval(async () => {
-        // Real USB Hardware takes precedence: NEVER overwrite active hardware stream with simulated data!
+        // 1. If USB Web Serial hardware is connected, it has absolute priority
         if (isSerialConnectedRef.current) {
           return;
         }
 
+        // 2. If backend service is connected, check if genuine hardware data arrived
         if (isConnected) {
-          await loadTelemetry(false);
-        } else if (isLiveStreamRunning) {
-          // Continuous live stream mode for hosted demo
-          setLatestReading((prev) => {
-            // Never overwrite real hardware reading with simulated data
-            if (prev && !prev.is_simulated) {
-              return prev;
+          try {
+            const latest = await fetchLatestReading().catch(() => null);
+            if (latest && !latest.is_simulated) {
+              // Real hardware telemetry arrived from LoRa gateway or ESP32 Wi-Fi
+              setIsLiveStreamRunning(false);
+              setLatestReading(latest);
+              const hist = await fetchReadingsHistory(30).catch(() => []);
+              if (hist.length > 0) setHistory(hist);
+              return;
             }
+          } catch {
+            // Ignore background fetch error
+          }
+        }
 
-            const baseTemp = prev ? prev.temperature : 26.5;
-            const baseHum = prev ? prev.humidity : 58.0;
-            const baseSoil = prev?.soil_moisture ?? 52.0;
-            const baseWater = prev?.water_level ?? 74.0;
+        // 3. When simulation is active (streaming mode or simulated reading present):
+        // DYNAMICALLY CHANGE the simulated sensor values on every tick!
+        const isSimActive =
+          isLiveStreamRunningRef.current ||
+          (latestReadingRef.current && latestReadingRef.current.is_simulated);
 
-            // Small realistic organic drift for continuous live display
-            const newTemp = Number(Math.max(16, Math.min(42, baseTemp + (Math.random() - 0.49) * 0.4)).toFixed(1));
-            const newHum = Number(Math.max(25, Math.min(95, baseHum + (Math.random() - 0.49) * 0.8)).toFixed(1));
-            const newSoil = Number(Math.max(15, Math.min(95, baseSoil + (Math.random() - 0.5) * 0.5)).toFixed(1));
-            const newWater = Number(Math.max(10, Math.min(100, baseWater + (Math.random() - 0.52) * 0.2)).toFixed(1));
-            const newMotion = Math.random() < 0.18;
-
-            const nextReading: SensorReading = {
-              id: Date.now(),
-              device_id: prev?.device_id || 'LIVE_STREAM_01',
-              temperature: newTemp,
-              humidity: newHum,
-              soil_moisture: newSoil,
-              water_level: newWater,
-              motion: newMotion,
-              is_simulated: true,
-              created_at: new Date().toISOString(),
-            };
-
-            setHistory((h) => [nextReading, ...h.slice(0, 49)]);
-            return nextReading;
+        if (isSimActive) {
+          setLatestReading((prev) => {
+            // Never overwrite real hardware
+            if (prev && !prev.is_simulated) return prev;
+            const next = generateSimulatedDrift(prev);
+            setHistory((h) => [next, ...h.slice(0, 49)]);
+            return next;
           });
-        } else {
+        } else if (isConnected) {
+          // Normal background telemetry refresh
           await loadTelemetry(false);
         }
-      }, 3500);
+      }, 2500);
     }
 
     return () => {
@@ -262,7 +358,7 @@ export function FieldSensorsPage() {
         window.clearInterval(pollIntervalRef.current);
       }
     };
-  }, [loadTelemetry, autoRefresh, isConnected, isLiveStreamRunning, isHosted]);
+  }, [loadTelemetry, autoRefresh, isConnected, isHosted, generateSimulatedDrift]);
 
   // Handle URL change
   const handleSaveUrl = (e: React.FormEvent) => {
@@ -287,12 +383,16 @@ export function FieldSensorsPage() {
   const handleToggleLiveStream = async () => {
     const nextState = !isLiveStreamRunning;
     setIsLiveStreamRunning(nextState);
-    if (nextState && !latestReading) {
-      const reading = await triggerSimulatedReading();
-      setLatestReading(reading);
-      setHistory((prev) => [reading, ...prev]);
+    if (nextState) {
+      if (!latestReading || !latestReading.is_simulated) {
+        const reading = await triggerSimulatedReading();
+        setLatestReading(reading);
+        setHistory((prev) => [reading, ...prev]);
+      }
+      setActionNotice('Continuous live telemetry streaming active — updating dynamically');
+    } else {
+      setActionNotice('Live stream paused');
     }
-    setActionNotice(nextState ? 'Continuous live telemetry stream running' : 'Live stream paused');
     setTimeout(() => setActionNotice(null), 3000);
   };
 
@@ -360,21 +460,30 @@ export function FieldSensorsPage() {
 
             const parsed = parseIncomingSerialLine(trimmed);
             if (parsed) {
-              const reading: SensorReading = {
-                id: Date.now(),
-                device_id: parsed.device_id || 'USB_ARDUINO_01',
-                temperature: Number(parsed.temperature ?? 25.0),
-                humidity: Number(parsed.humidity ?? 55.0),
-                soil_moisture: Number(parsed.soil_moisture ?? 50.0),
-                water_level: Number(parsed.water_level ?? 75.0),
-                motion: Boolean(parsed.motion),
-                is_simulated: false, // REAL HARDWARE TELEMETRY
-                created_at: new Date().toISOString(),
-              };
+              // Immediately merge incoming real reading with latest hardware state
+              setLatestReading((prev) => {
+                const updated: SensorReading = {
+                  id: Date.now(),
+                  device_id: parsed.device_id || prev?.device_id || 'HARDWARE_NODE_01',
+                  temperature: parsed.temperature !== undefined ? parsed.temperature : (prev?.temperature ?? 26.0),
+                  humidity: parsed.humidity !== undefined ? parsed.humidity : (prev?.humidity ?? 55.0),
+                  soil_moisture: parsed.soil_moisture !== undefined ? parsed.soil_moisture : (prev?.soil_moisture ?? 50.0),
+                  water_level: parsed.water_level !== undefined ? parsed.water_level : (prev?.water_level ?? 75.0),
+                  motion: parsed.motion !== undefined ? parsed.motion : (prev?.motion ?? false),
+                  is_simulated: false, // 100% REAL HARDWARE TELEMETRY
+                  created_at: new Date().toISOString(),
+                };
+                setHistory((h) => [updated, ...h.slice(0, 49)]);
 
-              // Immediately set real reading and pause any simulation
-              setLatestReading(reading);
-              setHistory((prev) => [reading, ...prev.slice(0, 49)]);
+                // Forward genuine hardware telemetry to local Flask service so it is persisted and available to local Wi-Fi devices
+                void fetch(`${backendUrl}/api/sensor-readings`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(updated),
+                }).catch(() => {});
+
+                return updated;
+              });
               setUsbPacketCount((count) => count + 1);
             }
           }
@@ -402,14 +511,15 @@ export function FieldSensorsPage() {
     }
   };
 
-  // Generate simulated reading
+  // Generate simulated reading and start dynamic live changes immediately
   const handleSimulate = async () => {
     setIsSimulating(true);
     try {
       const newReading = await triggerSimulatedReading();
       setLatestReading(newReading);
       setHistory((prev) => [newReading, ...prev.filter((r) => r.id !== newReading.id)]);
-      setActionNotice('Simulated sensor telemetry injected successfully');
+      setIsLiveStreamRunning(true);
+      setActionNotice('Simulated live sensor stream started — values fluctuating in real time');
       setTimeout(() => setActionNotice(null), 3500);
     } catch (err) {
       alert(`Simulation failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -898,15 +1008,18 @@ export function FieldSensorsPage() {
               {latestReading.is_simulated ? (
                 <div
                   data-testid="badge-simulated-data"
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30"
                 >
-                  <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span>SIMULATED TEST DATA</span>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                  </span>
+                  <span>SIMULATED TEST DATA {isLiveStreamRunning ? '(LIVE STREAM)' : ''}</span>
                 </div>
               ) : (
                 <div
                   data-testid="badge-real-data"
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
                 >
                   <Radio size={13} className="text-emerald-600 animate-pulse" />
                   <span>REAL SENSOR DATA ({isSerialConnected ? 'USB Hardware Active' : 'LoRa Telemetry'})</span>
@@ -914,6 +1027,39 @@ export function FieldSensorsPage() {
               )}
             </div>
           </div>
+
+          {/* Dynamic Status Notification Strip */}
+          {latestReading.is_simulated ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                <span>
+                  <strong>Dynamic Simulation Stream:</strong> Telemetry values fluctuate realistically every 2.5s. Connect your ESP32 hardware via USB to automatically display live hardware sensor readings.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleConnectUsbSerial}
+                className="shrink-0 font-bold underline hover:text-amber-900 dark:hover:text-amber-100 cursor-pointer"
+              >
+                Connect ESP32 USB &rarr;
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300">
+              <div className="flex items-center gap-2">
+                <Radio size={14} className="text-emerald-600 animate-pulse shrink-0" />
+                <span>
+                  <strong>Genuine Hardware Telemetry:</strong> Streaming live data from physical sensors ({latestReading.device_id}). Simulation suppressed.
+                </span>
+              </div>
+              {isSerialConnected && (
+                <span className="font-mono text-[11px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-md font-bold">
+                  {usbPacketCount} packets received
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Crop Condition & Agronomic Health Assessment Card */}
           {cropCondition && (

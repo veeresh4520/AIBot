@@ -183,3 +183,20 @@ Once both services are active:
 - **Render Outbound Bandwidth:** 100 GB/month included on Free tier.
 - **Cloudflare Pages:** 500 builds/month, unlimited bandwidth, global CDN caching.
 - **MongoDB Atlas M0:** 512 MB storage, shared vCPU. Sufficient for thousands of chunk records and vector search indexes.
+
+---
+
+## 8. Mobile Application Delivery (Android APK & PWA)
+
+Plant Doctor is distributed to mobile users in two modalities:
+
+### 1. Native Android Application (Capacitor APK)
+- **CI/CD Workflow:** Automatically compiled by GitHub Actions (`.github/workflows/android.yml`) on every push to `main`.
+- **Download Location:** Under GitHub Actions → **Build Android APK** → Artifacts (`PlantDoctor-Android-Debug-APK`), or directly under GitHub Releases (`mobile-latest`).
+- **Why APKs Do Not Auto-Update Over the Air:** Native Android APKs package HTML, CSS, JavaScript, and ONNX models directly into `android_asset`. They do not load from remote web servers. When changes are pushed to GitHub, you must download and install the new `.apk` file to update your phone.
+
+### 2. Progressive Web App (PWA)
+- **Hosted At:** `https://veeresh4520.github.io/AIBot/`
+- **Installation:** Open the URL on mobile Chrome or Safari and select **Add to Home Screen** / **Install App**.
+- **Auto-Update Mechanism:** Handled automatically by Workbox Service Worker (`sw.js`). When a new deployment reaches GitHub Pages, the Service Worker detects the update and reloads the application via the `controllerchange` event listener.
+

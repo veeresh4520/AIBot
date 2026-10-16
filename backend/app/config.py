@@ -18,14 +18,19 @@ class Settings(BaseSettings):
     cors_origins: Union[List[str], str] = Field(
         default=[
             "http://localhost:5173",
+            "http://localhost:5174",
+            "http://localhost:5175",
             "http://localhost:4173",
             "http://127.0.0.1:5173",
+            "http://127.0.0.1:5174",
+            "http://127.0.0.1:5175",
             "http://127.0.0.1:4173",
+            "https://veeresh4520.github.io",
         ],
         alias="CORS_ORIGINS",
     )
     cors_origin_regex: Optional[str] = Field(
-        default=r"^https:\/\/.*\.pages\.dev$",
+        default=r"^(https?:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?|https:\/\/.*\.github\.io|https:\/\/.*\.pages\.dev)$",
         alias="CORS_ORIGIN_REGEX",
     )
 
