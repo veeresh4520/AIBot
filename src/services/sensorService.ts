@@ -10,6 +10,8 @@ export interface SensorReading {
   temperature: number;
   humidity: number;
   motion: boolean;
+  soil_moisture?: number;
+  water_level?: number;
   is_simulated: boolean;
   created_at: string;
 }
@@ -202,6 +204,8 @@ export async function triggerSimulatedReading(overrides?: Partial<SensorReading>
   // In-memory fallback simulated test reading for hosted HTTPS demo or when Flask is offline
   const simTemp = overrides?.temperature ?? Number((22.0 + Math.random() * 14.0).toFixed(1));
   const simHum = overrides?.humidity ?? Number((40.0 + Math.random() * 45.0).toFixed(1));
+  const simSoil = overrides?.soil_moisture ?? Number((35.0 + Math.random() * 40.0).toFixed(1));
+  const simWater = overrides?.water_level ?? Number((45.0 + Math.random() * 45.0).toFixed(1));
   const simMotion = overrides?.motion ?? Math.random() < 0.35;
   const deviceId = overrides?.device_id ?? 'SIM_FIELD_01';
 
@@ -210,6 +214,8 @@ export async function triggerSimulatedReading(overrides?: Partial<SensorReading>
     device_id: deviceId,
     temperature: simTemp,
     humidity: simHum,
+    soil_moisture: simSoil,
+    water_level: simWater,
     motion: Boolean(simMotion),
     is_simulated: true,
     created_at: new Date().toISOString(),

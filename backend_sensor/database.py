@@ -25,6 +25,8 @@ def init_db() -> None:
                 temperature REAL NOT NULL,
                 humidity REAL NOT NULL,
                 motion INTEGER NOT NULL,
+                soil_moisture REAL DEFAULT 50.0,
+                water_level REAL DEFAULT 75.0,
                 is_simulated INTEGER NOT NULL DEFAULT 0,
                 raw_payload TEXT,
                 created_at TEXT NOT NULL
@@ -37,6 +39,15 @@ def init_db() -> None:
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_sensor_device_id ON sensor_readings(device_id)"
         )
+        # Migrate existing table if columns don't exist yet
+        try:
+            cursor.execute("ALTER TABLE sensor_readings ADD COLUMN soil_moisture REAL DEFAULT 50.0")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE sensor_readings ADD COLUMN water_level REAL DEFAULT 75.0")
+        except Exception:
+            pass
         conn.commit()
     finally:
         conn.close()
@@ -47,6 +58,8 @@ def insert_reading(
     temperature: float,
     humidity: float,
     motion: bool | int,
+    soil_moisture: Optional[float] = 50.0,
+    water_level: Optional[float] = 75.0,
     is_simulated: bool = False,
     raw_payload: str = "",
 ) -> Dict[str, Any]:
@@ -54,16 +67,18 @@ def insert_reading(
     now_iso = datetime.now(timezone.utc).isoformat()
     motion_val = 1 if motion else 0
     sim_val = 1 if is_simulated else 0
+    soil_val = float(soil_moisture) if soil_moisture is not None else 50.0
+    water_val = float(water_level) if water_level is not None else 75.0
 
     conn = get_connection()
     try:
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO sensor_readings (device_id, temperature, humidity, motion, is_simulated, raw_payload, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO sensor_readings (device_id, temperature, humidity, motion, soil_moisture, water_level, is_simulated, raw_payload, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (device_id, float(temperature), float(humidity), motion_val, sim_val, raw_payload, now_iso),
+            (device_id, float(temperature), float(humidity), motion_val, soil_val, water_val, sim_val, raw_payload, now_iso),
         )
         reading_id = cursor.lastrowid
         conn.commit()
@@ -76,6 +91,8 @@ def insert_reading(
         "temperature": float(temperature),
         "humidity": float(humidity),
         "motion": bool(motion_val),
+        "soil_moisture": soil_val,
+        "water_level": water_val,
         "is_simulated": bool(sim_val),
         "created_at": now_iso,
     }
@@ -88,7 +105,7 @@ def get_latest_reading() -> Optional[Dict[str, Any]]:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT id, device_id, temperature, humidity, motion, is_simulated, raw_payload, created_at
+            SELECT id, device_id, temperature, humidity, motion, soil_moisture, water_level, is_simulated, raw_payload, created_at
             FROM sensor_readings
             ORDER BY id DESC
             LIMIT 1
@@ -103,6 +120,8 @@ def get_latest_reading() -> Optional[Dict[str, Any]]:
             "temperature": row["temperature"],
             "humidity": row["humidity"],
             "motion": bool(row["motion"]),
+            "soil_moisture": row["soil_moisture"] if "soil_moisture" in row.keys() and row["soil_moisture"] is not None else 50.0,
+            "water_level": row["water_level"] if "water_level" in row.keys() and row["water_level"] is not None else 75.0,
             "is_simulated": bool(row["is_simulated"]),
             "raw_payload": row["raw_payload"],
             "created_at": row["created_at"],
@@ -118,7 +137,7 @@ def get_readings_history(limit: int = 50) -> List[Dict[str, Any]]:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT id, device_id, temperature, humidity, motion, is_simulated, raw_payload, created_at
+            SELECT id, device_id, temperature, humidity, motion, soil_moisture, water_level, is_simulated, raw_payload, created_at
             FROM sensor_readings
             ORDER BY id DESC
             LIMIT ?
@@ -133,6 +152,8 @@ def get_readings_history(limit: int = 50) -> List[Dict[str, Any]]:
                 "temperature": r["temperature"],
                 "humidity": r["humidity"],
                 "motion": bool(r["motion"]),
+                "soil_moisture": r["soil_moisture"] if "soil_moisture" in r.keys() and r["soil_moisture"] is not None else 50.0,
+                "water_level": r["water_level"] if "water_level" in r.keys() and r["water_level"] is not None else 75.0,
                 "is_simulated": bool(r["is_simulated"]),
                 "raw_payload": r["raw_payload"],
                 "created_at": r["created_at"],

@@ -92,7 +92,23 @@ def ingest_reading():
     else:
         motion = False
 
-    # 5. Distinguish real sensor data from simulated test data
+    # 5. Extract soil_moisture (accepts "soil_moisture" or "soil")
+    raw_soil = payload.get("soil_moisture", payload.get("soil"))
+    try:
+        soil_moisture = float(raw_soil) if raw_soil is not None else 50.0
+        soil_moisture = max(0.0, min(100.0, soil_moisture))
+    except (TypeError, ValueError):
+        soil_moisture = 50.0
+
+    # 6. Extract water_level (accepts "water_level" or "water")
+    raw_water = payload.get("water_level", payload.get("water"))
+    try:
+        water_level = float(raw_water) if raw_water is not None else 75.0
+        water_level = max(0.0, min(100.0, water_level))
+    except (TypeError, ValueError):
+        water_level = 75.0
+
+    # 7. Distinguish real sensor data from simulated test data
     is_simulated = bool(payload.get("is_simulated", False))
 
     raw_payload_str = json.dumps(payload, separators=(",", ":"))
@@ -102,6 +118,8 @@ def ingest_reading():
         temperature=temperature,
         humidity=humidity,
         motion=motion,
+        soil_moisture=soil_moisture,
+        water_level=water_level,
         is_simulated=is_simulated,
         raw_payload=raw_payload_str,
     )
@@ -150,6 +168,8 @@ def simulate_reading():
     # Generate realistic field variations or use overrides
     sim_temp = float(req_data.get("temperature", round(random.uniform(22.0, 36.0), 1)))
     sim_hum = float(req_data.get("humidity", round(random.uniform(40.0, 88.0), 1)))
+    sim_soil = float(req_data.get("soil_moisture", req_data.get("soil", round(random.uniform(35.0, 75.0), 1))))
+    sim_water = float(req_data.get("water_level", req_data.get("water", round(random.uniform(45.0, 92.0), 1))))
     sim_motion = bool(req_data.get("motion", random.choice([True, False, False, False])))
     device_id = str(req_data.get("device_id", "SIM_FIELD_01")).strip()
 
@@ -158,11 +178,15 @@ def simulate_reading():
         temperature=sim_temp,
         humidity=sim_hum,
         motion=sim_motion,
+        soil_moisture=sim_soil,
+        water_level=sim_water,
         is_simulated=True,
         raw_payload=json.dumps({
             "device_id": device_id,
             "temperature": sim_temp,
             "humidity": sim_hum,
+            "soil_moisture": sim_soil,
+            "water_level": sim_water,
             "motion": sim_motion,
             "is_simulated": True
         })

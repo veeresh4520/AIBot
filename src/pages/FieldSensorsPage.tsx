@@ -11,6 +11,8 @@ import {
   Trash2,
   Sliders,
   Smartphone,
+  Waves,
+  Sprout,
 } from 'lucide-react';
 import type { SensorReading, SensorThresholds } from '../services/sensorService';
 import {
@@ -459,7 +461,7 @@ export function FieldSensorsPage() {
           </div>
 
           {/* Metric Cards Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Temperature Card */}
             <div className="p-5 rounded-2xl bg-card border border-border space-y-2">
               <div className="flex items-center justify-between text-muted-foreground text-xs">
@@ -504,9 +506,57 @@ export function FieldSensorsPage() {
               </p>
             </div>
 
+            {/* Soil Moisture Card */}
+            <div className="p-5 rounded-2xl bg-card border border-border space-y-2">
+              <div className="flex items-center justify-between text-muted-foreground text-xs">
+                <span className="flex items-center gap-1.5 font-medium text-foreground">
+                  <Sprout size={15} className="text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                  <span>Soil Moisture</span>
+                </span>
+                <span>Band: 35% - 70%</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="font-heading text-4xl font-extrabold text-foreground">
+                  {(latestReading.soil_moisture ?? 50.0).toFixed(1)}
+                </span>
+                <span className="text-xl font-bold text-muted-foreground">%</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {(latestReading.soil_moisture ?? 50.0) < 30
+                  ? 'Dry soil · Irrigation required'
+                  : (latestReading.soil_moisture ?? 50.0) <= 70
+                  ? 'Optimal root zone moisture'
+                  : 'Saturated soil · Waterlogged'}
+              </p>
+            </div>
+
+            {/* Water Level / Reservoir Card */}
+            <div className="p-5 rounded-2xl bg-card border border-border space-y-2">
+              <div className="flex items-center justify-between text-muted-foreground text-xs">
+                <span className="flex items-center gap-1.5 font-medium text-foreground">
+                  <Waves size={15} className="text-blue-600 dark:text-blue-400" aria-hidden="true" />
+                  <span>Water Level (Tank/Well)</span>
+                </span>
+                <span>Reserve: &ge; 25%</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="font-heading text-4xl font-extrabold text-foreground">
+                  {(latestReading.water_level ?? 75.0).toFixed(1)}
+                </span>
+                <span className="text-xl font-bold text-muted-foreground">%</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {(latestReading.water_level ?? 75.0) < 25
+                  ? 'Low water level alert · Refill needed'
+                  : (latestReading.water_level ?? 75.0) <= 80
+                  ? 'Adequate water supply'
+                  : 'High capacity · Reservoir full'}
+              </p>
+            </div>
+
             {/* Motion Detection Card (Strictly separate alert) */}
             <div
-              className={`p-5 rounded-2xl border transition-colors space-y-2 ${
+              className={`p-5 rounded-2xl border transition-colors space-y-2 sm:col-span-2 lg:col-span-1 ${
                 latestReading.motion
                   ? 'bg-rose-500/10 border-rose-500/30'
                   : 'bg-emerald-500/10 border-emerald-500/30'
@@ -608,6 +658,8 @@ export function FieldSensorsPage() {
                     <th className="py-2.5 px-3">Origin</th>
                     <th className="py-2.5 px-3">Temperature</th>
                     <th className="py-2.5 px-3">Humidity</th>
+                    <th className="py-2.5 px-3">Soil Moisture</th>
+                    <th className="py-2.5 px-3">Water Level</th>
                     <th className="py-2.5 px-3">Motion</th>
                     <th className="py-2.5 px-3">Env Level</th>
                   </tr>
@@ -630,7 +682,7 @@ export function FieldSensorsPage() {
                             </span>
                           ) : (
                             <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
-                              Real LoRa
+                              Real Sensor
                             </span>
                           )}
                         </td>
@@ -639,6 +691,12 @@ export function FieldSensorsPage() {
                         </td>
                         <td className="py-2.5 px-3 font-semibold text-foreground">
                           {r.humidity.toFixed(1)}%
+                        </td>
+                        <td className="py-2.5 px-3 font-semibold text-foreground">
+                          {(r.soil_moisture ?? 50.0).toFixed(1)}%
+                        </td>
+                        <td className="py-2.5 px-3 font-semibold text-foreground">
+                          {(r.water_level ?? 75.0).toFixed(1)}%
                         </td>
                         <td className="py-2.5 px-3">
                           {r.motion ? (
