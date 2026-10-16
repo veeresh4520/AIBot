@@ -69,6 +69,29 @@ body {
   color: var(--color-foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior-y: contain;
+}
+
+/* Mobile Safe Area utilities */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+.safe-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+}
+
+.safe-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+.safe-bottom-nav {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -78,6 +101,14 @@ h1, h2, h3, h4, h5, h6 {
 *:focus-visible {
   outline: 2px solid var(--color-ring);
   outline-offset: 2px;
+}
+
+/* Touch active scale for tactile mobile feedback */
+.active-press {
+  transition: transform 0.12s ease-out;
+}
+.active-press:active {
+  transform: scale(0.96);
 }
 
 @media (prefers-reduced-motion: reduce) {

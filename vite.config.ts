@@ -28,41 +28,46 @@ function githubPagesSpa(): Plugin {
   }
 }
 
-export default defineConfig({
-  base: '/AIBot/',
-  plugins: [
-    react(),
-    tailwindcss(),
-    githubPagesSpa(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'icons/*.png'],
-      manifest: {
-        id: '/AIBot/',
-        name: 'Plant Doctor',
-        short_name: 'PlantDoc',
-        description: 'Offline-first, evidence-grounded agricultural assistant',
-        theme_color: '#15803D',
-        background_color: '#F0FDF4',
-        display: 'standalone',
-        orientation: 'portrait-primary',
-        scope: '/AIBot/',
-        start_url: '/AIBot/',
-        icons: [
-          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-          { src: 'icons/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
-          { src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-          { src: 'icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
-        ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        maximumFileSizeToCacheInBytes: 35 * 1024 * 1024,
-        // Serve the cached app shell for any in-app navigation while offline.
-        navigateFallback: '/AIBot/index.html',
-        // Never fall back to the shell for API requests (kept on the network).
-        navigateFallbackDenylist: [/^\/api\//],
+export default defineConfig(({ mode }) => {
+  const isMobileBuild = mode === 'mobile' || process.env.CAPACITOR === 'true' || process.env.BUILD_TARGET === 'mobile';
+  const base = process.env.VITE_BASE_PATH || (isMobileBuild ? './' : '/AIBot/');
+  const rootPath = isMobileBuild ? '/' : '/AIBot/';
+
+  return {
+    base,
+    plugins: [
+      react(),
+      tailwindcss(),
+      ...(!isMobileBuild ? [githubPagesSpa()] : []),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'icons/*.png'],
+        manifest: {
+          id: rootPath,
+          name: 'Plant Doctor',
+          short_name: 'PlantDoc',
+          description: 'Offline-first, evidence-grounded agricultural assistant',
+          theme_color: '#15803D',
+          background_color: '#F0FDF4',
+          display: 'standalone',
+          orientation: 'portrait-primary',
+          scope: rootPath,
+          start_url: rootPath,
+          icons: [
+            { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: 'icons/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+            { src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+            { src: 'icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
+          ],
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+          maximumFileSizeToCacheInBytes: 35 * 1024 * 1024,
+          // Serve the cached app shell for any in-app navigation while offline.
+          navigateFallback: isMobileBuild ? '/index.html' : '/AIBot/index.html',
+          // Never fall back to the shell for API requests (kept on the network).
+          navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,
         // Static assets, onnx model, wasm runtimes, and Google Fonts are cached below.
         runtimeCaching: [
@@ -94,5 +99,6 @@ export default defineConfig({
         ],
       },
     }),
-  ],
-})
+    ],
+  };
+});

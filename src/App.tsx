@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { ToastProvider } from './components/Toast';
 import { LanguageProvider } from './i18n/LanguageContext';
 import { Layout } from './app/Layout';
@@ -19,10 +20,21 @@ function App() {
     void ensureOfflineReadiness();
   }, []);
 
+  const routerBasename = useMemo(() => {
+    if (Capacitor.isNativePlatform()) {
+      return '/';
+    }
+    const base = import.meta.env.BASE_URL || '/';
+    if (base !== '/' && typeof window !== 'undefined' && !window.location.pathname.startsWith(base)) {
+      return '/';
+    }
+    return base;
+  }, []);
+
   return (
     <LanguageProvider>
       <ToastProvider>
-        <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <BrowserRouter basename={routerBasename}>
           <Routes>
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />

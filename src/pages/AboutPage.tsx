@@ -1,12 +1,14 @@
-import { Shield, AlertTriangle, Database, Leaf, BookCheck, Scale } from 'lucide-react';
+import { Shield, AlertTriangle, Database, Leaf, BookCheck, Scale, Smartphone, CheckCircle } from 'lucide-react';
 import { EVIDENCE_STATUS_META } from '../models/types';
 import type { EvidenceStatus } from '../models/types';
 import { EvidenceStatusBadge } from '../components/EvidenceStatusBadge';
 import { useTranslation } from '../i18n/LanguageContext';
 import { LanguageSelector } from '../components/LanguageSelector';
+import { useMobileApp } from '../hooks/useMobileApp';
 
 export function AboutPage() {
   const { t } = useTranslation();
+  const { isInstalled, isNative } = useMobileApp();
 
   const trustItems = [
     t.aboutTrustItem1,
@@ -164,11 +166,19 @@ export function AboutPage() {
 
       {/* PWA Installation & Offline Shell */}
       <section className="rounded-2xl border border-border bg-card p-6 space-y-4 shadow-xs" data-testid="pwa-install-guide">
-        <div className="flex items-center gap-2 mb-1">
-          <Leaf size={20} className="text-primary" aria-hidden="true" />
-          <h2 className="font-heading text-lg font-semibold text-card-foreground">
-            {t.aboutPwaTitle}
-          </h2>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div className="flex items-center gap-2">
+            <Smartphone size={20} className="text-primary" aria-hidden="true" />
+            <h2 className="font-heading text-lg font-semibold text-card-foreground">
+              {t.aboutPwaTitle}
+            </h2>
+          </div>
+          {isInstalled && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+              <CheckCircle size={14} aria-hidden="true" />
+              <span>{isNative ? 'Native Android App Active' : 'Installed Standalone App Active'}</span>
+            </span>
+          )}
         </div>
         <p className="text-sm text-card-foreground/90 leading-relaxed">
           {t.aboutPwaDesc}

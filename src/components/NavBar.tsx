@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, MessageCircleQuestion, BookOpen, Activity, Info, Leaf, Download, WifiOff } from 'lucide-react';
+import { Home, MessageCircleQuestion, BookOpen, Activity, Info, Leaf, Download, WifiOff, Smartphone } from 'lucide-react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { useMobileApp } from '../hooks/useMobileApp';
 import { InstallModal } from './InstallModal';
 import { LanguageSelector } from './LanguageSelector';
 
@@ -12,11 +13,23 @@ interface BeforeInstallPromptEvent extends Event {
 
 import { useTranslation } from '../i18n/LanguageContext';
 
-export function NavBar() {
+interface NavBarProps {
+  showInstallModal?: boolean;
+  setShowInstallModal?: (show: boolean) => void;
+}
+
+export function NavBar({
+  showInstallModal: externalShowInstallModal,
+  setShowInstallModal: externalSetShowInstallModal,
+}: NavBarProps = {}) {
   const isOnline = useOnlineStatus();
   const { t } = useTranslation();
-  const [showInstallModal, setShowInstallModal] = useState(false);
+  const { isInstalled, isNative } = useMobileApp();
+  const [internalShowInstallModal, setInternalShowInstallModal] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  const showInstallModal = externalShowInstallModal ?? internalShowInstallModal;
+  const setShowInstallModal = externalSetShowInstallModal ?? setInternalShowInstallModal;
 
   const navItems = [
     { to: '/', label: t.navHome, icon: Home },
@@ -92,21 +105,28 @@ export function NavBar() {
           <LanguageSelector variant="dropdown" className="w-full justify-between" />
         </div>
 
-        {/* Install PWA action */}
+        {/* Install PWA action or Installed Badge */}
         <div className="px-4 py-3 border-t border-border">
-          <button
-            type="button"
-            onClick={() => setShowInstallModal(true)}
-            aria-label={t.installAppPwa}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary px-3 py-2.5 text-xs font-semibold transition-colors cursor-pointer"
-          >
-            <Download size={15} aria-hidden="true" />
-            <span>{t.installAppPwa}</span>
-          </button>
+          {isInstalled ? (
+            <div className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary/10 text-primary px-3 py-2 text-xs font-semibold">
+              <Smartphone size={15} aria-hidden="true" />
+              <span>{isNative ? 'Android App' : 'Installed App'}</span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowInstallModal(true)}
+              aria-label={t.installAppPwa}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary px-3 py-2.5 text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <Download size={15} aria-hidden="true" />
+              <span>{t.installAppPwa}</span>
+            </button>
+          )}
         </div>
 
         <div className="px-6 py-3 border-t border-border text-xs text-muted-foreground">
-          v0.2.0 — Multimodal & Multilingual
+          v0.2.0 — Multimodal &amp; Multilingual
         </div>
       </nav>
 
@@ -124,32 +144,53 @@ export function NavBar() {
       {/* Mobile bottom nav */}
       <nav
         aria-label="Main navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-border bg-card/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-border bg-card/95 backdrop-blur-md pb-[max(0.65rem,env(safe-area-inset-bottom,0px))] pt-1.5 px-1 shadow-lg"
       >
         {navItems.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
+            onClick={() => {
+              try {
+                if ('vibrate' in navigator) navigator.vibrate(10);
+              } catch {
+                // ignore
+              }
+            }}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-0.5 py-2.5 px-3 text-[11px] font-medium transition-colors duration-150 cursor-pointer min-w-[64px] ${
-                isActive ? 'text-primary' : 'text-muted-foreground'
+              `flex flex-col items-center justify-center gap-1 py-1 px-1.5 rounded-xl text-[11px] font-medium transition-all duration-150 cursor-pointer min-w-[54px] active:scale-95 ${
+                isActive ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
               }`
             }
           >
-            <Icon size={22} aria-hidden="true" />
-            {label}
+            {({ isActive }) => (
+              <>
+                <div
+                  className={`flex items-center justify-center w-10 h-7 rounded-full transition-colors ${
+                    isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground'
+                  }`}
+                >
+                  <Icon size={20} aria-hidden="true" />
+                </div>
+                <span className="truncate max-w-[62px] text-[10.5px] leading-tight">{label}</span>
+              </>
+            )}
           </NavLink>
         ))}
-        <button
-          type="button"
-          onClick={() => setShowInstallModal(true)}
-          aria-label={t.installApp}
-          className="flex flex-col items-center gap-0.5 py-2.5 px-3 text-[11px] font-medium text-muted-foreground hover:text-foreground cursor-pointer min-w-[64px]"
-        >
-          <Download size={22} aria-hidden="true" />
-          {t.installApp}
-        </button>
+        {!isInstalled && (
+          <button
+            type="button"
+            onClick={() => setShowInstallModal(true)}
+            aria-label={t.installApp}
+            className="flex flex-col items-center justify-center gap-1 py-1 px-1.5 rounded-xl text-[11px] font-medium text-muted-foreground hover:text-foreground cursor-pointer min-w-[54px] active:scale-95"
+          >
+            <div className="flex items-center justify-center w-10 h-7 rounded-full bg-muted/60 text-muted-foreground">
+              <Download size={18} aria-hidden="true" />
+            </div>
+            <span className="truncate max-w-[62px] text-[10.5px] leading-tight">{t.installApp}</span>
+          </button>
+        )}
       </nav>
 
       {/* Install Guide Modal */}
