@@ -1,0 +1,23 @@
+{
+  "serial": {
+    "port": "AUTO",
+    "baudrate": 115200,
+    "timeout": 1.0
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5050
+  },
+  "storage": {
+    "database": "hardware_sensors.db",
+    "max_history": 200
+  },
+  "thresholds": {
+    "temperature_max": 35.0,
+    "temperature_min": 15.0,
+    "humidity_min": 35.0,
+    "humidity_max": 75.0,
+    "soil_min": 35.0,
+    "water_min": 25.0
+  }
+}

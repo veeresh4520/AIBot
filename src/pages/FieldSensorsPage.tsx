@@ -16,6 +16,8 @@ import {
   Play,
   Pause,
   Cpu,
+  Terminal,
+  X,
 } from 'lucide-react';
 import type { SensorReading, SensorThresholds } from '../services/sensorService';
 import {
@@ -32,6 +34,87 @@ import {
   checkLocalServiceHealth,
   clearReadingsHistory,
 } from '../services/sensorService';
+
+/**
+ * Robust telemetry parser supporting:
+ * 1. Clean JSON: {"device_id":"FIELD_01","temperature":26.5,...}
+ * 2. Embedded JSON within noise / boot messages: extracts { ... }
+ * 3. Key-Value pairs: "Temp: 26.5 Hum: 58.0 Soil: 52 Water: 75 Motion: 0"
+ * 4. CSV lines: "26.5,58.0,52.0,75.0,0"
+ */
+function parseIncomingSerialLine(line: string): Partial<SensorReading> | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  // 1. JSON or embedded JSON extraction
+  const startIdx = trimmed.indexOf('{');
+  const endIdx = trimmed.lastIndexOf('}');
+  if (startIdx !== -1 && endIdx > startIdx) {
+    try {
+      const jsonStr = trimmed.substring(startIdx, endIdx + 1);
+      const data = JSON.parse(jsonStr);
+
+      // Verify that this packet contains actual sensor metrics rather than just a boot/status message
+      const hasSensorField =
+        data.temperature !== undefined ||
+        data.temp !== undefined ||
+        data.humidity !== undefined ||
+        data.hum !== undefined ||
+        data.soil_moisture !== undefined ||
+        data.soil !== undefined ||
+        data.water_level !== undefined ||
+        data.water !== undefined;
+
+      if (!hasSensorField) {
+        return null;
+      }
+
+      return {
+        device_id: data.device_id || 'USB_ARDUINO_01',
+        temperature: Number(data.temperature ?? data.temp ?? 25.0),
+        humidity: Number(data.humidity ?? data.hum ?? 55.0),
+        soil_moisture: Number(data.soil_moisture ?? data.soil ?? 50.0),
+        water_level: Number(data.water_level ?? data.water ?? 75.0),
+        motion: Boolean(data.motion),
+      };
+    } catch {
+      // Fall through to text formats
+    }
+  }
+
+  // 2. Key-Value format (e.g. "Temp: 26.5 Hum: 58.0 Soil: 52 Water: 75 Motion: 0")
+  const tempMatch = trimmed.match(/(?:temp(?:erature)?|t)\s*[:=]\s*([\d.]+)/i);
+  const humMatch = trimmed.match(/(?:hum(?:idity)?|h)\s*[:=]\s*([\d.]+)/i);
+  const soilMatch = trimmed.match(/(?:soil(?:_moisture)?|s)\s*[:=]\s*([\d.]+)/i);
+  const waterMatch = trimmed.match(/(?:water(?:_level)?|w)\s*[:=]\s*([\d.]+)/i);
+  const motionMatch = trimmed.match(/(?:motion|pir|m)\s*[:=]\s*([01]|true|false)/i);
+
+  if (tempMatch || humMatch || soilMatch) {
+    return {
+      device_id: 'USB_ARDUINO_01',
+      temperature: tempMatch ? parseFloat(tempMatch[1]) : 25.0,
+      humidity: humMatch ? parseFloat(humMatch[1]) : 55.0,
+      soil_moisture: soilMatch ? parseFloat(soilMatch[1]) : 50.0,
+      water_level: waterMatch ? parseFloat(waterMatch[1]) : 75.0,
+      motion: motionMatch ? (motionMatch[1] === '1' || motionMatch[1].toLowerCase() === 'true') : false,
+    };
+  }
+
+  // 3. CSV format (e.g. "26.5,58.0,52.0,75.0,0")
+  const parts = trimmed.split(',').map((p) => p.trim());
+  if (parts.length >= 2 && !isNaN(Number(parts[0])) && !isNaN(Number(parts[1]))) {
+    return {
+      device_id: 'USB_ARDUINO_01',
+      temperature: parseFloat(parts[0]),
+      humidity: parseFloat(parts[1]),
+      soil_moisture: parts[2] && !isNaN(Number(parts[2])) ? parseFloat(parts[2]) : 50.0,
+      water_level: parts[3] && !isNaN(Number(parts[3])) ? parseFloat(parts[3]) : 75.0,
+      motion: parts[4] ? (parts[4] === '1' || parts[4].toLowerCase() === 'true') : false,
+    };
+  }
+
+  return null;
+}
 
 export function FieldSensorsPage() {
   const isHosted = typeof window !== 'undefined' && (
@@ -57,9 +140,15 @@ export function FieldSensorsPage() {
   const [showPhoneGuide, setShowPhoneGuide] = useState<boolean>(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isSerialConnected, setIsSerialConnected] = useState<boolean>(false);
+  const [usbBaudRate, setUsbBaudRate] = useState<number>(115200);
+  const [usbPacketCount, setUsbPacketCount] = useState<number>(0);
+  const [usbLog, setUsbLog] = useState<string[]>([]);
+  const [showUsbLog, setShowUsbLog] = useState<boolean>(false);
 
   const pollIntervalRef = useRef<number | null>(null);
   const serialPortRef = useRef<any>(null);
+  const serialReaderRef = useRef<any>(null);
+  const isSerialConnectedRef = useRef<boolean>(false);
 
   // Load telemetry from local Flask service
   const loadTelemetry = useCallback(async (isInitial = false) => {
@@ -105,7 +194,7 @@ export function FieldSensorsPage() {
   useEffect(() => {
     let cancelled = false;
 
-    // When hosted on GitHub Pages, immediately seed with live reading if empty
+    // When hosted on GitHub Pages, seed with initial reading if completely empty
     if (isHosted && !latestReading) {
       void triggerSimulatedReading().then((initial) => {
         if (!cancelled) {
@@ -119,11 +208,21 @@ export function FieldSensorsPage() {
 
     if (autoRefresh) {
       pollIntervalRef.current = window.setInterval(async () => {
+        // Real USB Hardware takes precedence: NEVER overwrite active hardware stream with simulated data!
+        if (isSerialConnectedRef.current) {
+          return;
+        }
+
         if (isConnected) {
           await loadTelemetry(false);
-        } else if (isLiveStreamRunning || isHosted) {
-          // Continuous live stream mode for hosted GitHub Pages / demo
+        } else if (isLiveStreamRunning) {
+          // Continuous live stream mode for hosted demo
           setLatestReading((prev) => {
+            // Never overwrite real hardware reading with simulated data
+            if (prev && !prev.is_simulated) {
+              return prev;
+            }
+
             const baseTemp = prev ? prev.temperature : 26.5;
             const baseHum = prev ? prev.humidity : 58.0;
             const baseSoil = prev?.soil_moisture ?? 52.0;
@@ -197,6 +296,26 @@ export function FieldSensorsPage() {
     setTimeout(() => setActionNotice(null), 3000);
   };
 
+  // Cleanly disconnect USB Serial
+  const handleDisconnectUsbSerial = async () => {
+    isSerialConnectedRef.current = false;
+    setIsSerialConnected(false);
+    try {
+      if (serialReaderRef.current) {
+        await serialReaderRef.current.cancel().catch(() => {});
+        serialReaderRef.current = null;
+      }
+      if (serialPortRef.current) {
+        await serialPortRef.current.close().catch(() => {});
+        serialPortRef.current = null;
+      }
+    } catch {
+      // Ignore cleanup error
+    }
+    setActionNotice('USB Hardware sensor disconnected');
+    setTimeout(() => setActionNotice(null), 3000);
+  };
+
   // Connect USB Arduino directly in browser via Web Serial API
   const handleConnectUsbSerial = async () => {
     if (typeof navigator === 'undefined' || !('serial' in navigator)) {
@@ -207,15 +326,19 @@ export function FieldSensorsPage() {
     }
     try {
       const port = await (navigator as any).serial.requestPort();
-      await port.open({ baudRate: 115200 });
+      await port.open({ baudRate: usbBaudRate });
       serialPortRef.current = port;
+      isSerialConnectedRef.current = true;
       setIsSerialConnected(true);
-      setActionNotice('Connected directly to USB Arduino hardware sensor!');
+      setIsLiveStreamRunning(false); // Stop simulation immediately
+      setUsbPacketCount(0);
+      setActionNotice(`Connected directly to USB Arduino hardware on ${usbBaudRate} baud!`);
       setTimeout(() => setActionNotice(null), 4000);
 
       const textDecoder = new TextDecoderStream();
       port.readable.pipeTo(textDecoder.writable);
       const reader = textDecoder.readable.getReader();
+      serialReaderRef.current = reader;
 
       let buffer = '';
       while (true) {
@@ -228,23 +351,31 @@ export function FieldSensorsPage() {
           for (const line of lines) {
             const trimmed = line.trim();
             if (!trimmed) continue;
-            try {
-              const data = JSON.parse(trimmed);
+
+            // Log incoming raw line for user inspection
+            setUsbLog((prev) => [
+              `[${new Date().toLocaleTimeString()}] ${trimmed.length > 120 ? trimmed.substring(0, 120) + '…' : trimmed}`,
+              ...prev.slice(0, 49),
+            ]);
+
+            const parsed = parseIncomingSerialLine(trimmed);
+            if (parsed) {
               const reading: SensorReading = {
                 id: Date.now(),
-                device_id: data.device_id || 'USB_ARDUINO_01',
-                temperature: Number(data.temperature ?? data.temp ?? 25.0),
-                humidity: Number(data.humidity ?? data.hum ?? 55.0),
-                soil_moisture: Number(data.soil_moisture ?? data.soil ?? 50.0),
-                water_level: Number(data.water_level ?? data.water ?? 75.0),
-                motion: Boolean(data.motion),
-                is_simulated: false,
+                device_id: parsed.device_id || 'USB_ARDUINO_01',
+                temperature: Number(parsed.temperature ?? 25.0),
+                humidity: Number(parsed.humidity ?? 55.0),
+                soil_moisture: Number(parsed.soil_moisture ?? 50.0),
+                water_level: Number(parsed.water_level ?? 75.0),
+                motion: Boolean(parsed.motion),
+                is_simulated: false, // REAL HARDWARE TELEMETRY
                 created_at: new Date().toISOString(),
               };
+
+              // Immediately set real reading and pause any simulation
               setLatestReading(reading);
               setHistory((prev) => [reading, ...prev.slice(0, 49)]);
-            } catch {
-              // Ignore non-JSON line
+              setUsbPacketCount((count) => count + 1);
             }
           }
         }
@@ -258,13 +389,15 @@ export function FieldSensorsPage() {
             'Common Causes & Fixes:\n' +
             '1. Selected a Bluetooth port: In the browser popup, select the USB COM port (e.g. "USB-SERIAL CH340" or "Arduino Uno"), NOT "Standard Serial over Bluetooth link".\n\n' +
             '2. Arduino IDE Serial Monitor is open: CLOSE the Serial Monitor tab inside the Arduino IDE (Windows gives exclusive access to one program at a time).\n\n' +
-            '3. USB Cable: Use a USB DATA cable (many phone charging cables are charge-only without data lines).\n\n' +
-            '4. Driver: If using a clone Arduino Uno/Nano, install the CH340 USB driver (CH341SER).'
+            '3. Baud Rate Mismatch: Make sure your Arduino sketch baud rate matches the selected dropdown rate (' + usbBaudRate + ').\n\n' +
+            '4. USB Cable: Use a USB DATA cable (many phone charging cables are charge-only without data lines).\n\n' +
+            '5. Driver: If using a clone Arduino Uno/Nano, install the CH340 USB driver (CH341SER).'
           );
         } else {
           alert(`Serial connection failed: ${err.message}`);
         }
       }
+      isSerialConnectedRef.current = false;
       setIsSerialConnected(false);
     }
   };
@@ -419,19 +552,63 @@ export function FieldSensorsPage() {
           </button>
 
           {/* Connect USB Hardware Directly via Web Serial */}
-          <button
-            type="button"
-            onClick={handleConnectUsbSerial}
-            title="Connect USB Arduino / microcontroller directly in browser (Chrome/Edge/Android)"
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
-              isSerialConnected
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
-                : 'border-border hover:bg-muted text-foreground'
-            }`}
-          >
-            <Cpu size={14} />
-            <span>{isSerialConnected ? 'USB Sensor Connected' : 'Connect USB Hardware'}</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {!isSerialConnected ? (
+              <>
+                <select
+                  value={usbBaudRate}
+                  onChange={(e) => setUsbBaudRate(Number(e.target.value))}
+                  title="Select USB Serial Baud Rate matching your Arduino code"
+                  className="rounded-xl border border-border bg-background px-2 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-xs"
+                >
+                  <option value={115200}>115200 Baud (Fast / PlantDoctor)</option>
+                  <option value={9600}>9600 Baud (Standard Arduino)</option>
+                  <option value={57600}>57600 Baud</option>
+                  <option value={38400}>38400 Baud</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={handleConnectUsbSerial}
+                  title="Connect USB Arduino / microcontroller directly in browser (Chrome/Edge/Android)"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-border hover:bg-muted text-foreground px-3 py-2 text-xs font-medium transition-colors cursor-pointer"
+                >
+                  <Cpu size={14} />
+                  <span>Connect USB Hardware</span>
+                </button>
+              </>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/40 rounded-xl p-1">
+                <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span>USB Live ({usbPacketCount} pkts)</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleDisconnectUsbSerial}
+                  title="Disconnect USB serial port cleanly"
+                  className="px-2 py-1 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer font-medium"
+                >
+                  Disconnect
+                </button>
+              </div>
+            )}
+
+            {/* USB Live Monitor Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowUsbLog(!showUsbLog)}
+              title="Open/close live serial terminal monitor"
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
+                showUsbLog
+                  ? 'bg-primary/10 border-primary/40 text-primary'
+                  : 'border-border hover:bg-muted text-foreground'
+              }`}
+            >
+              <Terminal size={14} />
+              <span>USB Console {usbPacketCount > 0 ? `(${usbPacketCount})` : ''}</span>
+            </button>
+          </div>
 
           {/* Thresholds Drawer Button */}
           <button
@@ -477,6 +654,81 @@ export function FieldSensorsPage() {
           )}
         </div>
       </div>
+
+      {/* Expandable USB Serial Monitor / Debug Log Console */}
+      {showUsbLog && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-950 text-slate-100 p-4 text-xs font-mono space-y-3 shadow-lg">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <div className="flex items-center gap-2">
+              <Terminal size={15} className="text-emerald-400" />
+              <span className="font-semibold text-slate-200">
+                USB Serial Monitor · {isSerialConnected ? `Connected (${usbBaudRate} Baud)` : 'Disconnected'}
+              </span>
+              {isSerialConnected && (
+                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {usbPacketCount} packets received
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setUsbLog([])}
+                className="text-[11px] text-slate-400 hover:text-slate-200 underline cursor-pointer"
+              >
+                Clear Log
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowUsbLog(false)}
+                className="text-slate-400 hover:text-slate-200 cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+
+          {usbLog.length === 0 ? (
+            <div className="py-3 text-slate-400 space-y-2">
+              <p className="text-slate-300">
+                {isSerialConnected
+                  ? 'Waiting for incoming serial telemetry lines from USB hardware…'
+                  : 'USB hardware is currently not connected.'}
+              </p>
+              {isSerialConnected ? (
+                <div className="text-[11px] text-amber-300 bg-amber-950/40 border border-amber-800/50 rounded-xl p-3 space-y-1">
+                  <p className="font-bold">⚠️ Connected to COM port, but no data received yet? Quick checks:</p>
+                  <ul className="list-disc list-inside space-y-1 text-slate-300">
+                    <li>
+                      <strong>Close Arduino IDE Serial Monitor:</strong> Windows only allows one program to open a COM port. Close the Serial Monitor tab inside Arduino IDE!
+                    </li>
+                    <li>
+                      <strong>Baud Rate:</strong> If your Arduino code uses <code className="text-amber-200">Serial.begin(9600)</code>, click Disconnect and select <strong>9600 Baud</strong>.
+                    </li>
+                    <li>
+                      <strong>USB Cable:</strong> Use a micro-USB / USB-C cable that transfers <strong>data</strong> (many cheap phone cables only carry power).
+                    </li>
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-400">
+                  Select your Baud Rate above and click <strong>Connect USB Hardware</strong> to stream real sensor data directly to this dashboard.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="max-h-56 overflow-y-auto space-y-1 text-[11px] bg-slate-900/70 p-3 rounded-xl border border-slate-800/80">
+              {usbLog.map((line, idx) => (
+                <div key={idx} className="leading-relaxed font-mono flex items-start gap-1">
+                  <span className="text-emerald-400 select-none shrink-0">&gt;</span>
+                  <span className="text-slate-200 break-all">{line}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Expandable Phone Local Wi-Fi Guide */}
       {showPhoneGuide && (
@@ -657,7 +909,7 @@ export function FieldSensorsPage() {
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
                 >
                   <Radio size={13} className="text-emerald-600 animate-pulse" />
-                  <span>REAL SENSOR DATA (LoRa Telemetry)</span>
+                  <span>REAL SENSOR DATA ({isSerialConnected ? 'USB Hardware Active' : 'LoRa Telemetry'})</span>
                 </div>
               )}
             </div>

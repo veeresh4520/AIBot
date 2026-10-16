@@ -1,0 +1,7 @@
+# Isolated dependencies for Hardware Integration backend
+# Install with: pip install -r hardware-integration/backend/requirements.txt
+
+pyserial>=3.5
+requests>=2.31.0
+flask>=3.0.0
+flask-cors>=4.0.0

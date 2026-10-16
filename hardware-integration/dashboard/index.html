@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PlantDoctor - Standalone Hardware RF Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="dashboard-header">
+      <div class="header-brand">
+        <div class="brand-icon">📡</div>
+        <div>
+          <h1>Hardware Sensor Integration Dashboard</h1>
+          <p class="subtitle">Isolated Real-Time RF / Serial Telemetry Receiver &amp; Crop Condition Engine</p>
+        </div>
+      </div>
+      
+      <div class="header-controls">
+        <div id="connectionPill" class="status-pill status-offline">
+          <span class="status-dot"></span>
+          <span id="connectionText">Checking Backend (5050)...</span>
+        </div>
+        <button id="btnConnectUsb" class="btn btn-secondary">
+          <span>🔌 Connect USB Hardware</span>
+        </button>
+        <button id="btnSimulate" class="btn btn-primary">
+          <span>+ Inject Test Packet</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Notification Banner -->
+    <div id="noticeBanner" class="notice-banner" style="display: none;"></div>
+
+    <!-- Crop Condition Assessment Card -->
+    <section class="card crop-condition-card">
+      <div class="crop-header">
+        <div class="crop-identity">
+          <span id="cropIcon" class="crop-icon-large">🍅</span>
+          <div>
+            <div class="crop-title-row">
+              <h2 id="cropNameHeading">Tomato Health Assessment</h2>
+              <span id="cropScientific" class="crop-scientific">(Solanum lycopersicum)</span>
+            </div>
+            <p class="crop-subtext">Real-time agronomic evaluation based on temperature, humidity, soil moisture &amp; thresholds</p>
+          </div>
+        </div>
+
+        <div class="crop-selector-box">
+          <label for="cropSelect">Crop Profile:</label>
+          <select id="cropSelect" class="select-dropdown">
+            <option value="tomato">🍅 Tomato</option>
+            <option value="rice">🌾 Rice / Paddy</option>
+            <option value="wheat">🌱 Wheat</option>
+            <option value="cotton">☁️ Cotton</option>
+            <option value="chilli">🌶️ Chilli / Pepper</option>
+            <option value="maize">🌽 Maize / Corn</option>
+            <option value="general">🌾 General Field Crop</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Health Score Banner -->
+      <div id="healthScoreBanner" class="score-banner score-optimal">
+        <div class="score-circle-box">
+          <div id="healthScoreValue" class="score-circle">92%</div>
+        </div>
+        <div class="score-details">
+          <div class="score-headline">
+            <span id="conditionTitle">Optimal Plant Vigour &amp; Comfort</span>
+            <span id="statusBadge" class="badge-status badge-optimal">OPTIMAL</span>
+          </div>
+          <p id="conditionSummary" class="score-summary">All parameters within optimal comfort range.</p>
+        </div>
+        <div id="quickBadges" class="quick-badges">
+          <span id="irrigationBadge" class="badge-pill badge-blue" style="display: none;">💧 Irrigation Required</span>
+          <span id="fungalBadge" class="badge-pill badge-amber" style="display: none;">⚠️ High Fungal Risk</span>
+        </div>
+      </div>
+
+      <!-- 4 Parameter Breakdown Grid -->
+      <div class="diagnostics-grid">
+        <div class="diag-card">
+          <div class="diag-head">
+            <span>Temperature</span>
+            <span id="tempStatusPill" class="pill-mini pill-green">OPTIMAL</span>
+          </div>
+          <div class="diag-value"><span id="diagTemp">26.5</span> °C</div>
+          <p id="diagTempMsg" class="diag-msg">Optimal vegetative comfort band</p>
+        </div>
+
+        <div class="diag-card">
+          <div class="diag-head">
+            <span>Soil Moisture</span>
+            <span id="soilStatusPill" class="pill-mini pill-green">OPTIMAL</span>
+          </div>
+          <div class="diag-value"><span id="diagSoil">52.0</span> %</div>
+          <p id="diagSoilMsg" class="diag-msg">Ideal root zone capillary hydration</p>
+        </div>
+
+        <div class="diag-card">
+          <div class="diag-head">
+            <span>Relative Humidity</span>
+            <span id="humStatusPill" class="pill-mini pill-green">OPTIMAL</span>
+          </div>
+          <div class="diag-value"><span id="diagHum">58.0</span> %</div>
+          <p id="diagHumMsg" class="diag-msg">Balanced atmospheric moisture</p>
+        </div>
+
+        <div class="diag-card">
+          <div class="diag-head">
+            <span>Water Reservoir</span>
+            <span id="waterStatusPill" class="pill-mini pill-green">OPTIMAL</span>
+          </div>
+          <div class="diag-value"><span id="diagWater">75.0</span> %</div>
+          <p id="diagWaterMsg" class="diag-msg">Sufficient reserve for fertigation</p>
+        </div>
+      </div>
+
+      <!-- Farmer Recommendations -->
+      <div class="recommendations-box">
+        <div class="rec-title">🌱 Agronomic Guidance &amp; Recommended Actions</div>
+        <ul id="recommendationsList" class="rec-list">
+          <li>Conditions are ideal for crop growth. Maintain normal fertigation schedule.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 5 Live Metrics Grid -->
+    <section class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-title">Temperature</div>
+        <div class="metric-main">
+          <span id="valTemp" class="metric-number">--</span>
+          <span class="metric-unit">°C</span>
+        </div>
+        <div id="subTemp" class="metric-sub">Waiting for telemetry...</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Relative Humidity</div>
+        <div class="metric-main">
+          <span id="valHum" class="metric-number">--</span>
+          <span class="metric-unit">%</span>
+        </div>
+        <div id="subHum" class="metric-sub">Waiting for telemetry...</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Soil Moisture</div>
+        <div class="metric-main">
+          <span id="valSoil" class="metric-number">--</span>
+          <span class="metric-unit">%</span>
+        </div>
+        <div id="subSoil" class="metric-sub">Waiting for telemetry...</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Water Level (Tank/Well)</div>
+        <div class="metric-main">
+          <span id="valWater" class="metric-number">--</span>
+          <span class="metric-unit">%</span>
+        </div>
+        <div id="subWater" class="metric-sub">Waiting for telemetry...</div>
+      </div>
+
+      <div id="motionCard" class="metric-card motion-card">
+        <div class="metric-title">Perimeter Motion</div>
+        <div class="metric-main motion-main">
+          <span id="motionIcon" class="motion-icon">🛡️</span>
+          <span id="valMotion" class="motion-text">CLEAR</span>
+        </div>
+        <div id="subMotion" class="metric-sub">No movement detected in field</div>
+      </div>
+    </section>
+
+    <!-- Live RF Packet Log & History Section -->
+    <div class="bottom-split-grid">
+      <!-- Live Packet Feed -->
+      <section class="card packet-terminal-card">
+        <div class="section-header">
+          <h3>Incoming RF / Serial Packet Stream</h3>
+          <span class="badge-mini">Baud 115200</span>
+        </div>
+        <div id="terminalConsole" class="terminal-box">
+          <div class="terminal-line">[System] Isolated hardware dashboard loaded. Waiting for USB RF receiver...</div>
+        </div>
+      </section>
+
+      <!-- History Table -->
+      <section class="card history-card">
+        <div class="section-header">
+          <h3>Telemetry History (Isolated SQLite)</h3>
+          <span id="historyCount" class="badge-mini">0 Records</span>
+        </div>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Device</th>
+                <th>Temp</th>
+                <th>Hum</th>
+                <th>Soil</th>
+                <th>Water</th>
+                <th>Motion</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr>
+                <td colspan="7" class="table-empty">No telemetry packets received yet</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

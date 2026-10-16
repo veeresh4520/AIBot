@@ -144,6 +144,6 @@ void loop() {
   Serial.print(F(",\"is_simulated\":false}"));
   Serial.println(); // Trailing newline is critical for serial stream readers
 
-  // Wait 3 seconds before next telemetry packet
-  delay(3000);
+  // Wait 1 second before next telemetry packet for fast, responsive live streaming
+  delay(1000);
 }
