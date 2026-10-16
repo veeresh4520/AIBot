@@ -1,0 +1,504 @@
+﻿{
+    "manifest":  {
+                     "format_version":  "1.0",
+                     "id":  "pack-veg-001",
+                     "name":  "Solanaceous \u0026 Tropical Vegetables",
+                     "version":  "1.0.0",
+                     "region":  "Tropical / Sub-tropical",
+                     "crop_categories":  [
+                                             "Tomato",
+                                             "Pepper",
+                                             "Eggplant"
+                                         ],
+                     "source_count":  6,
+                     "checksum":  "e9d8b83db47812828f1c3ba0304a65fd8175dcb6cbe2ced51ec7b8eda108320b",
+                     "generated_at":  "2026-10-16T10:42:17.745784+00:00"
+                 },
+    "pack":  {
+                 "id":  "pack-veg-001",
+                 "name":  "Solanaceous \u0026 Tropical Vegetables",
+                 "description":  "Diagnostic evidence and nutrient disorder management for tomato, pepper, and eggplant.",
+                 "version":  "1.0.0",
+                 "region":  "Tropical / Sub-tropical",
+                 "cropCategories":  [
+                                        "Tomato",
+                                        "Pepper",
+                                        "Eggplant"
+                                    ],
+                 "sizeBytes":  16784,
+                 "sourceCount":  6,
+                 "checksum":  "e9d8b83db47812828f1c3ba0304a65fd8175dcb6cbe2ced51ec7b8eda108320b",
+                 "lastUpdated":  "2026-10-16T10:42:17.745784+00:00",
+                 "lastSynced":  null,
+                 "lastVerified":  "2026-10-16T10:42:17.745811+00:00",
+                 "status":  "available"
+             },
+    "sources":  [
+                    {
+                        "id":  "src-7ab9a9ee",
+                        "identifier":  "UC-ANR-8356",
+                        "title":  "Tomato Nutrient Disorders \u0026 Visual Symptom Diagnosis",
+                        "authors":  [
+                                        "Dr. T. Hartz",
+                                        "Dr. E. Miyao"
+                                    ],
+                        "institution":  "University of California Agriculture \u0026 Natural Resources (UC ANR)",
+                        "published_date":  "2023-04-10T00:00:00Z",
+                        "last_verified":  "2025-10-01T00:00:00Z",
+                        "url":  "https://anrcatalog.ucanr.edu/pdf/8356.pdf",
+                        "version":  "1.0.0",
+                        "status":  "verified",
+                        "crops":  [
+                                      "tomato"
+                                  ],
+                        "regions":  [
+                                        "global",
+                                        "tropical",
+                                        "temperate"
+                                    ],
+                        "languages":  [
+                                          "en"
+                                      ],
+                        "license":  "CC BY-NC 4.0",
+                        "checksum":  "5ebeed925b6b17b2ea83eab9b5e43a3b863ef477f47a9438ab278c4738e5d772",
+                        "created_at":  "2026-10-16T10:42:12.160789+00:00"
+                    },
+                    {
+                        "id":  "src-6040b81d",
+                        "identifier":  "NCAT-ATTRA-IPM-04",
+                        "title":  "Organic Bio-Intensive Management for Solanaceous Crops",
+                        "authors":  [
+                                        "R. Sullivan",
+                                        "ATTRA Sustainable Agriculture Program"
+                                    ],
+                        "institution":  "National Center for Appropriate Technology (NCAT / ATTRA)",
+                        "published_date":  "2023-01-20T00:00:00Z",
+                        "last_verified":  "2025-10-01T00:00:00Z",
+                        "url":  "https://attra.ncat.org/publication/organic-tomato-production/",
+                        "version":  "1.0.0",
+                        "status":  "verified",
+                        "crops":  [
+                                      "tomato",
+                                      "pepper",
+                                      "eggplant"
+                                  ],
+                        "regions":  [
+                                        "global",
+                                        "tropical",
+                                        "temperate"
+                                    ],
+                        "languages":  [
+                                          "en"
+                                      ],
+                        "license":  "Educational / Open Extension",
+                        "checksum":  "6b68a8f1a5379977c873438e25ada8c7cbbca24243f28e12be744de315308c5d",
+                        "created_at":  "2026-10-16T10:42:13.095700+00:00"
+                    },
+                    {
+                        "id":  "src-1aab0b15",
+                        "identifier":  "TNAU-AGR-TOM-LB-2023",
+                        "title":  "Integrated Management of Tomato Late Blight and Leaf Curl Virus",
+                        "authors":  [
+                                        "Department of Plant Pathology, TNAU",
+                                        "Dr. K. Angappan"
+                                    ],
+                        "institution":  "Tamil Nadu Agricultural University (TNAU Agritech Portal)",
+                        "published_date":  "2023-08-10T00:00:00Z",
+                        "last_verified":  "2025-10-01T00:00:00Z",
+                        "url":  "https://agritech.tnau.ac.in/crop_protection/crop_prot_crop%20diseases_veg_tomato.html",
+                        "version":  "1.0.0",
+                        "status":  "verified",
+                        "crops":  [
+                                      "tomato"
+                                  ],
+                        "regions":  [
+                                        "tropical",
+                                        "sub-tropical",
+                                        "temperate",
+                                        "global"
+                                    ],
+                        "languages":  [
+                                          "en"
+                                      ],
+                        "license":  "Open Educational Extension / TNAU",
+                        "checksum":  "d2024f161e395dd81976070b251ab9b6d967331b71551395e89ab7cb7d1f862a",
+                        "created_at":  "2026-10-16T10:42:13.948246+00:00"
+                    },
+                    {
+                        "id":  "src-15572ee8",
+                        "identifier":  "HIST-EXT-1998-44",
+                        "title":  "Historical Tomato Pest Management Circular (Archival)",
+                        "authors":  [
+                                        "State Agricultural College Extension"
+                                    ],
+                        "institution":  "State College Extension Bulletin (1998)",
+                        "published_date":  "1998-05-01T00:00:00Z",
+                        "last_verified":  "1998-05-01T00:00:00Z",
+                        "url":  null,
+                        "version":  "1.0.0",
+                        "status":  "verified",
+                        "crops":  [
+                                      "tomato"
+                                  ],
+                        "regions":  [
+                                        "temperate"
+                                    ],
+                        "languages":  [
+                                          "en"
+                                      ],
+                        "license":  "Historical Archive",
+                        "checksum":  "894219b6981eda17e95c029749f3fdb7cf23aaa1c7780d82dcaeee6356507835",
+                        "created_at":  "2026-10-16T10:42:13.839209+00:00"
+                    },
+                    {
+                        "id":  "src-e4ca15ca",
+                        "identifier":  "TNAU-AGR-CHILLI-2023",
+                        "title":  "Bacterial Spot and Foliar Blight Management in Bell Pepper and Chilli",
+                        "authors":  [
+                                        "TNAU Horticultural Research Station",
+                                        "Extension Plant Pathologist"
+                                    ],
+                        "institution":  "Tamil Nadu Agricultural University (TNAU Agritech Portal)",
+                        "published_date":  "2023-03-12T00:00:00Z",
+                        "last_verified":  "2025-10-01T00:00:00Z",
+                        "url":  "https://agritech.tnau.ac.in/crop_protection/crop_prot_crop_diseases_veg_chilli.html",
+                        "version":  "1.0.0",
+                        "status":  "verified",
+                        "crops":  [
+                                      "pepper",
+                                      "chilli"
+                                  ],
+                        "regions":  [
+                                        "tropical",
+                                        "sub-tropical",
+                                        "global"
+                                    ],
+                        "languages":  [
+                                          "en"
+                                      ],
+                        "license":  "TNAU Agritech Open Resource",
+                        "checksum":  "b24ffd45ed54ddcf0444ca5225c0663e4d6c6cef1b1fb8f9526c8e0a907c36dd",
+                        "created_at":  "2026-10-16T10:42:14.915753+00:00"
+                    },
+                    {
+                        "id":  "src-76ef84cd",
+                        "identifier":  "USDA-ARS-EB-2022",
+                        "title":  "Early Blight and Septoria Foliar Management in Tomatoes",
+                        "authors":  [
+                                        "Dr. M. Babadoost",
+                                        "USDA ARS Plant Pathology Team"
+                                    ],
+                        "institution":  "USDA Agricultural Research Service / University of Illinois Extension",
+                        "published_date":  "2022-08-15T00:00:00Z",
+                        "last_verified":  "2025-10-01T00:00:00Z",
+                        "url":  "https://extension.illinois.edu/plant-diseases/tomato-early-blight",
+                        "version":  "1.0.0",
+                        "status":  "verified",
+                        "crops":  [
+                                      "tomato"
+                                  ],
+                        "regions":  [
+                                        "global",
+                                        "temperate",
+                                        "tropical"
+                                    ],
+                        "languages":  [
+                                          "en"
+                                      ],
+                        "license":  "Public Domain / USDA",
+                        "checksum":  "6bc2ad30fa006af1fce10632e0dcc01a439b373db798f77995248fdb8d31f703",
+                        "created_at":  "2026-10-16T10:42:12.613733+00:00"
+                    }
+                ],
+    "chunks":  [
+                   {
+                       "id":  "chunk-src-7ab9a9ee-001",
+                       "source_id":  "src-7ab9a9ee",
+                       "source_version":  "1.0.0",
+                       "text":  "Tomato Nitrogen Deficiency: Nitrogen is mobile in the tomato plant. Deficiency begins as a uniform yellowing (chlorosis) of the oldest lower leaves, with yellowing gradually progressing up the plant. Growth is stunted, and stems may turn thin and fibrous with a purple tint. Supplemental side-dressing with calcium nitrate or composted organic nitrogen restores vigorous vegetative growth. Tomato Iron Deficiency: Iron is immobile in plant tissue. Deficiency symptoms appear first on",
+                       "page_or_section":  "Section 1",
+                       "crop_id":  "tomato",
+                       "region_id":  "global",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:12.161150+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-7ab9a9ee-002",
+                       "source_id":  "src-7ab9a9ee",
+                       "source_version":  "1.0.0",
+                       "text":  "growth. Tomato Iron Deficiency: Iron is immobile in plant tissue. Deficiency symptoms appear first on the youngest upper terminal leaves as distinct interveinal chlorosis, where leaf veins remain bright green while the tissue between veins turns pale yellow or ivory white. Iron chlorosis is frequently triggered by high soil pH (above 7.5) or over-saturated, cold root zones rather than an absolute lack of soil iron. Blossom End Rot (BER): Blossom",
+                       "page_or_section":  "Section 2",
+                       "crop_id":  "tomato",
+                       "region_id":  "global",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:12.161219+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-7ab9a9ee-003",
+                       "source_id":  "src-7ab9a9ee",
+                       "source_version":  "1.0.0",
+                       "text":  "root zones rather than an absolute lack of soil iron. Blossom End Rot (BER): Blossom end rot in tomato fruit begins as a water-soaked spot on the blossom end that turns dark brown, leathery, and sunken. While caused by localized calcium deficiency in expanding fruit cells, it is almost universally induced by fluctuating soil moisture and drought stress that disrupts transpiration stream calcium transport. Maintaining consistent drip irrigation and avoiding",
+                       "page_or_section":  "Section 3",
+                       "crop_id":  "tomato",
+                       "region_id":  "global",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:12.161260+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-7ab9a9ee-004",
+                       "source_id":  "src-7ab9a9ee",
+                       "source_version":  "1.0.0",
+                       "text":  "and drought stress that disrupts transpiration stream calcium transport. Maintaining consistent drip irrigation and avoiding root pruning is primary prevention.",
+                       "page_or_section":  "Section 4",
+                       "crop_id":  "tomato",
+                       "region_id":  "global",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:12.161288+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-76ef84cd-001",
+                       "source_id":  "src-76ef84cd",
+                       "source_version":  "1.0.0",
+                       "text":  "Early Blight Diagnosis: Early blight is caused by the fungal pathogen Alternaria solani. Diagnostic symptoms consist of circular to angular dark brown or black spots with characteristic concentric rings creating a distinct \u0027target-board\u0027 or \u0027bullseye\u0027 appearance on older lower foliage. As lesions expand, surrounding leaf tissue turns yellow and prematurely defoliates. Fungicide Intervention Guidelines: At first observation of early blight target-spots, apply protective copper fungicide spray (copper hydroxide or copper",
+                       "page_or_section":  "Section 1",
+                       "crop_id":  "tomato",
+                       "region_id":  "global",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:12.613915+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-76ef84cd-002",
+                       "source_id":  "src-76ef84cd",
+                       "source_version":  "1.0.0",
+                       "text":  "first observation of early blight target-spots, apply protective copper fungicide spray (copper hydroxide or copper octanoate) or conventional chlorothalonil according to label timing. Spray applications must cover lower canopy leaf undersides where fungal spore germination initiates. Re-apply on a 7 to 10 day interval during warm, humid rainfall periods. Cultural Hygiene Practices: Prevent fungal spore splash by installing mulch around plant bases and avoiding overhead sprinkler irrigation. Prune lower leaves",
+                       "page_or_section":  "Section 2",
+                       "crop_id":  "tomato",
+                       "region_id":  "global",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:12.613950+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-76ef84cd-003",
+                       "source_id":  "src-76ef84cd",
+                       "source_version":  "1.0.0",
+                       "text":  "splash by installing mulch around plant bases and avoiding overhead sprinkler irrigation. Prune lower leaves within 30 centimeters of the soil surface to enhance air movement. Implement a mandatory 3-year crop rotation away from all Solanaceous family crops (potatoes, peppers, eggplants).",
+                       "page_or_section":  "Section 3",
+                       "crop_id":  "tomato",
+                       "region_id":  "global",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:12.613973+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-6040b81d-001",
+                       "source_id":  "src-6040b81d",
+                       "source_version":  "1.0.0",
+                       "text":  "Biological Disease Management in Organic Systems: Organic certified tomato production prohibits synthetic chemical fungicides. Instead of synthetic chemical sprays, deploy bio-fungicides containing beneficial antagonistic bacteria such as Bacillus subtilis strain QST 713 or Trichoderma harzianum to colonize leaf surfaces and outcompete fungal pathogens. Organic Certification Restriction: Avoid synthetic copper fungicides or repeated heavy chemical sprays which cause copper accumulation toxicity in living soil biology. Utilize potassium bicarbonate and compost tea",
+                       "page_or_section":  "Section 1",
+                       "crop_id":  "tomato",
+                       "region_id":  "global",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:13.095826+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-6040b81d-002",
+                       "source_id":  "src-6040b81d",
+                       "source_version":  "1.0.0",
+                       "text":  "which cause copper accumulation toxicity in living soil biology. Utilize potassium bicarbonate and compost tea extracts applied preventatively in early morning hours before fungal spore infection occurs.",
+                       "page_or_section":  "Section 2",
+                       "crop_id":  "tomato",
+                       "region_id":  "global",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:13.095869+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-15572ee8-001",
+                       "source_id":  "src-15572ee8",
+                       "source_version":  "1.0.0",
+                       "text":  "Archival Tomato Guidance: Apply organophosphate chemical insecticides at first emergence of hornworms or foliar beetle activity. Ensure heavy seasonal applications of legacy mineral sulfur compounds across the field.",
+                       "page_or_section":  "Section 1",
+                       "crop_id":  "tomato",
+                       "region_id":  "temperate",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:13.839367+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-1aab0b15-001",
+                       "source_id":  "src-1aab0b15",
+                       "source_version":  "1.0.0",
+                       "text":  "Tomato Late Blight Symptoms: Late blight caused by Phytophthora infestans appears as water-soaked irregular pale green to dark brown lesions on leaves and stems. Under cool, humid weather (relative humidity above 90% and temperature 15-20Â°C), a delicate white cottony fungal growth develops on the undersides of leaf lesions. Infected green fruits develop dark brown greasy blotches that rot rapidly. Late Blight Chemical and Cultural Management: At first symptom appearance during",
+                       "page_or_section":  "Section 1",
+                       "crop_id":  "tomato",
+                       "region_id":  "tropical",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:13.948761+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-1aab0b15-002",
+                       "source_id":  "src-1aab0b15",
+                       "source_version":  "1.0.0",
+                       "text":  "blotches that rot rapidly. Late Blight Chemical and Cultural Management: At first symptom appearance during foggy or rainy weather, spray Metalaxyl 8% + Mancozeb 64% WP at 2 g/L or Copper Oxychloride 50% WP at 2.5 g/L. Repeat at 7 to 10 day intervals if humid conditions persist. Avoid overhead irrigation and destroy infected plant debris outside the field borders. Tomato Yellow Leaf Curl Virus (TYLCV) Identification: Transmitted by whitefly",
+                       "page_or_section":  "Section 2",
+                       "crop_id":  "tomato",
+                       "region_id":  "tropical",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:13.948980+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-1aab0b15-003",
+                       "source_id":  "src-1aab0b15",
+                       "source_version":  "1.0.0",
+                       "text":  "debris outside the field borders. Tomato Yellow Leaf Curl Virus (TYLCV) Identification: Transmitted by whitefly vector (Bemisia tabaci). Symptoms include severe stunting of plants, upward curling and crinkling of leaflet margins, interveinal chlorosis, and bushy appearance with reduced flower and fruit set. Whitefly Vector Management for TYLCV: Install yellow sticky traps (12 per hectare) to monitor and mass-trap whiteflies. Spray neem oil (3%) or azadirachtin 1% at 2 ml/L as",
+                       "page_or_section":  "Section 3",
+                       "crop_id":  "tomato",
+                       "region_id":  "tropical",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:13.954499+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-1aab0b15-004",
+                       "source_id":  "src-1aab0b15",
+                       "source_version":  "1.0.0",
+                       "text":  "monitor and mass-trap whiteflies. Spray neem oil (3%) or azadirachtin 1% at 2 ml/L as an organic repellent. In case of heavy whitefly infestation in early vegetative stage, apply imidacloprid 17.8% SL at 0.3 ml/L or thiamethoxam 25% WG at 0.25 g/L with strict pre-harvest interval compliance.",
+                       "page_or_section":  "Section 4",
+                       "crop_id":  "tomato",
+                       "region_id":  "tropical",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:13.954597+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-e4ca15ca-001",
+                       "source_id":  "src-e4ca15ca",
+                       "source_version":  "1.0.0",
+                       "text":  "Bacterial Leaf Spot Symptoms: Caused by Xanthomonas campestris pv. vesicatoria in capsicum (bell pepper) and chilli. Foliar symptoms appear as small, water-soaked, circular to irregular dark brown lesions with yellow halos. Severe infection leads to extensive leaf drop and defoliation, exposing fruit to sunscald. On fruit, raised rough, wart-like brown scabs develop. Bacterial Spot Integrated Control: Treat certified seed with hot water (50Â°C for 25 minutes) or Trichoderma viride at",
+                       "page_or_section":  "Section 1",
+                       "crop_id":  "pepper",
+                       "region_id":  "tropical",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:14.916018+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-e4ca15ca-002",
+                       "source_id":  "src-e4ca15ca",
+                       "source_version":  "1.0.0",
+                       "text":  "Control: Treat certified seed with hot water (50Â°C for 25 minutes) or Trichoderma viride at 4 g/kg seed. At first appearance of leaf spotting, spray Copper Oxychloride 50% WP at 2.5 g/L mixed with Streptocycline (streptomycin sulphate + tetracycline) at 100 ppm (1 g per 10 liters of water). Ensure coverage of both upper and lower leaf surfaces. Repeat after 12 to 14 days if wet weather continues.",
+                       "page_or_section":  "Section 2",
+                       "crop_id":  "pepper",
+                       "region_id":  "tropical",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:14.916073+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-e4ca15ca-003",
+                       "source_id":  "src-e4ca15ca",
+                       "source_version":  "1.0.0",
+                       "text":  "lower leaf surfaces. Repeat after 12 to 14 days if wet weather continues.",
+                       "page_or_section":  "Section 3",
+                       "crop_id":  "pepper",
+                       "region_id":  "tropical",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:14.916102+00:00"
+                   }
+               ]
+}

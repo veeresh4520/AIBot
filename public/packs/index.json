@@ -1,0 +1,38 @@
+﻿[
+    {
+        "id":  "pack-veg-001",
+        "name":  "Solanaceous \u0026 Tropical Vegetables",
+        "description":  "Diagnostic evidence and nutrient disorder management for tomato, pepper, and eggplant.",
+        "version":  "1.0.0",
+        "region":  "Tropical / Sub-tropical",
+        "cropCategories":  [
+                               "Tomato",
+                               "Pepper",
+                               "Eggplant"
+                           ],
+        "sizeBytes":  16784,
+        "sourceCount":  6,
+        "checksum":  "e9d8b83db47812828f1c3ba0304a65fd8175dcb6cbe2ced51ec7b8eda108320b",
+        "lastUpdated":  "2026-10-16T10:42:17.745784+00:00",
+        "lastSynced":  null,
+        "lastVerified":  "2026-10-16T10:42:17.745811+00:00",
+        "status":  "available"
+    },
+    {
+        "id":  "pack-rice-001",
+        "name":  "Lowland Paddy Rice Pathology",
+        "description":  "Blast prevention and water regulation for tropical flooded lowland rice.",
+        "version":  "1.0.0",
+        "region":  "Tropical",
+        "cropCategories":  [
+                               "Rice"
+                           ],
+        "sizeBytes":  2117,
+        "sourceCount":  1,
+        "checksum":  "67eb28ba2c259e3ecfc68a309c123ef10710c9b831adf5931b9eeeebe4084002",
+        "lastUpdated":  "2026-10-16T10:42:17.747107+00:00",
+        "lastSynced":  null,
+        "lastVerified":  "2026-10-16T10:42:17.747122+00:00",
+        "status":  "available"
+    }
+]

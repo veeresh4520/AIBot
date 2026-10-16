@@ -1,0 +1,97 @@
+﻿{
+    "manifest":  {
+                     "format_version":  "1.0",
+                     "id":  "pack-rice-001",
+                     "name":  "Lowland Paddy Rice Pathology",
+                     "version":  "1.0.0",
+                     "region":  "Tropical",
+                     "crop_categories":  [
+                                             "Rice"
+                                         ],
+                     "source_count":  1,
+                     "checksum":  "67eb28ba2c259e3ecfc68a309c123ef10710c9b831adf5931b9eeeebe4084002",
+                     "generated_at":  "2026-10-16T10:42:17.747107+00:00"
+                 },
+    "pack":  {
+                 "id":  "pack-rice-001",
+                 "name":  "Lowland Paddy Rice Pathology",
+                 "description":  "Blast prevention and water regulation for tropical flooded lowland rice.",
+                 "version":  "1.0.0",
+                 "region":  "Tropical",
+                 "cropCategories":  [
+                                        "Rice"
+                                    ],
+                 "sizeBytes":  2117,
+                 "sourceCount":  1,
+                 "checksum":  "67eb28ba2c259e3ecfc68a309c123ef10710c9b831adf5931b9eeeebe4084002",
+                 "lastUpdated":  "2026-10-16T10:42:17.747107+00:00",
+                 "lastSynced":  null,
+                 "lastVerified":  "2026-10-16T10:42:17.747122+00:00",
+                 "status":  "available"
+             },
+    "sources":  [
+                    {
+                        "id":  "src-aeae4bf1",
+                        "identifier":  "IRRI-RB-2023",
+                        "title":  "Rice Blast (Magnaporthe oryzae) Epidemic Control in Tropical Lowland Paddies",
+                        "authors":  [
+                                        "Dr. K. S. IRRI Pathology Group"
+                                    ],
+                        "institution":  "International Rice Research Institute (IRRI)",
+                        "published_date":  "2023-06-11T00:00:00Z",
+                        "last_verified":  "2025-10-01T00:00:00Z",
+                        "url":  "http://www.knowledgebank.irri.org/blast",
+                        "version":  "1.0.0",
+                        "status":  "verified",
+                        "crops":  [
+                                      "rice"
+                                  ],
+                        "regions":  [
+                                        "tropical",
+                                        "sub-tropical"
+                                    ],
+                        "languages":  [
+                                          "en"
+                                      ],
+                        "license":  "CC BY 3.0 IGO",
+                        "checksum":  "715605fb4c923e6c4075e8f8fb0f9f5edb1cea33e3b78527a5055a082dabc789",
+                        "created_at":  "2026-10-16T10:42:13.357029+00:00"
+                    }
+                ],
+    "chunks":  [
+                   {
+                       "id":  "chunk-src-aeae4bf1-001",
+                       "source_id":  "src-aeae4bf1",
+                       "source_version":  "1.0.0",
+                       "text":  "Rice Blast Symptoms in Paddies: Rice blast affects lowland paddy rice. Foliar lesions are diamond or spindle-shaped with greyish-white centers and brownish margins. Under humid flooded conditions, lesions coalesce, causing complete burning of the rice canopy. Paddy Water and Nitrogen Regulation: In tropical lowland paddies, avoid excessive split applications of urea nitrogen, which produces soft vegetative tissue highly vulnerable to blast penetration. Maintain continuous flooded water depth of 5 to",
+                       "page_or_section":  "Section 1",
+                       "crop_id":  "rice",
+                       "region_id":  "tropical",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:13.357240+00:00"
+                   },
+                   {
+                       "id":  "chunk-src-aeae4bf1-002",
+                       "source_id":  "src-aeae4bf1",
+                       "source_version":  "1.0.0",
+                       "text":  "vegetative tissue highly vulnerable to blast penetration. Maintain continuous flooded water depth of 5 to 7 centimeters to inhibit spore germination from the paddy mud.",
+                       "page_or_section":  "Section 2",
+                       "crop_id":  "rice",
+                       "region_id":  "tropical",
+                       "growth_stage_id":  null,
+                       "status":  "verified",
+                       "relevance_score":  null,
+                       "retrieval_mode":  null,
+                       "pack_ids":  [
+
+                                    ],
+                       "created_at":  "2026-10-16T10:42:13.357293+00:00"
+                   }
+               ]
+}
