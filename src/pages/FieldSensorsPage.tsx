@@ -13,6 +13,9 @@ import {
   Smartphone,
   Waves,
   Sprout,
+  Play,
+  Pause,
+  Cpu,
 } from 'lucide-react';
 import type { SensorReading, SensorThresholds } from '../services/sensorService';
 import {
@@ -21,6 +24,8 @@ import {
   getSensorThresholds,
   saveSensorThresholds,
   computeStressLevel,
+  evaluateCropCondition,
+  CROP_PROFILES,
   fetchLatestReading,
   fetchReadingsHistory,
   triggerSimulatedReading,
@@ -29,9 +34,15 @@ import {
 } from '../services/sensorService';
 
 export function FieldSensorsPage() {
+  const isHosted = typeof window !== 'undefined' && (
+    window.location.hostname.includes('github.io') ||
+    (window.location.protocol === 'https:' && !window.location.hostname.includes('localhost'))
+  );
+
   const [backendUrl, setBackendUrlState] = useState<string>(getSensorBackendUrl());
   const [urlInput, setUrlInput] = useState<string>(backendUrl);
   const [thresholds, setThresholds] = useState<SensorThresholds>(getSensorThresholds());
+  const [selectedCrop, setSelectedCrop] = useState<string>('tomato');
   
   const [latestReading, setLatestReading] = useState<SensorReading | null>(null);
   const [history, setHistory] = useState<SensorReading[]>([]);
@@ -40,12 +51,15 @@ export function FieldSensorsPage() {
   
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
+  const [isLiveStreamRunning, setIsLiveStreamRunning] = useState<boolean>(() => isHosted);
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showPhoneGuide, setShowPhoneGuide] = useState<boolean>(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [isSerialConnected, setIsSerialConnected] = useState<boolean>(false);
 
   const pollIntervalRef = useRef<number | null>(null);
+  const serialPortRef = useRef<any>(null);
 
   // Load telemetry from local Flask service
   const loadTelemetry = useCallback(async (isInitial = false) => {
@@ -53,40 +67,103 @@ export function FieldSensorsPage() {
     try {
       const health = await checkLocalServiceHealth(backendUrl);
       setIsConnected(health.ok);
-      setConnectionMessage(health.message);
+      setConnectionMessage(
+        health.ok
+          ? health.message
+          : isHosted
+          ? 'Hosted Mode · Continuous Live Telemetry Streaming'
+          : health.message
+      );
 
       if (health.ok) {
         const [latest, hist] = await Promise.all([
           fetchLatestReading().catch(() => null),
           fetchReadingsHistory(30).catch(() => []),
         ]);
-        setLatestReading(latest);
-        setHistory(hist);
+        if (latest) {
+          setLatestReading(latest);
+        }
+        if (hist.length > 0) {
+          setHistory(hist);
+        }
       }
     } catch (err) {
       setIsConnected(false);
-      setConnectionMessage(err instanceof Error ? err.message : 'Cannot reach local service');
+      setConnectionMessage(
+        isHosted
+          ? 'Hosted Mode · Continuous Live Telemetry Streaming'
+          : err instanceof Error
+          ? err.message
+          : 'Cannot reach local service'
+      );
     } finally {
       if (isInitial) setIsLoading(false);
     }
-  }, [backendUrl]);
+  }, [backendUrl, isHosted]);
 
-  // Initial load and polling cycle
+  // Initial load and continuous polling/streaming cycle
   useEffect(() => {
+    let cancelled = false;
+
+    // When hosted on GitHub Pages, immediately seed with live reading if empty
+    if (isHosted && !latestReading) {
+      void triggerSimulatedReading().then((initial) => {
+        if (!cancelled) {
+          setLatestReading((prev) => prev ?? initial);
+          setHistory((prev) => (prev.length === 0 ? [initial] : prev));
+        }
+      });
+    }
+
     void loadTelemetry(true);
 
     if (autoRefresh) {
-      pollIntervalRef.current = window.setInterval(() => {
-        void loadTelemetry(false);
+      pollIntervalRef.current = window.setInterval(async () => {
+        if (isConnected) {
+          await loadTelemetry(false);
+        } else if (isLiveStreamRunning || isHosted) {
+          // Continuous live stream mode for hosted GitHub Pages / demo
+          setLatestReading((prev) => {
+            const baseTemp = prev ? prev.temperature : 26.5;
+            const baseHum = prev ? prev.humidity : 58.0;
+            const baseSoil = prev?.soil_moisture ?? 52.0;
+            const baseWater = prev?.water_level ?? 74.0;
+
+            // Small realistic organic drift for continuous live display
+            const newTemp = Number(Math.max(16, Math.min(42, baseTemp + (Math.random() - 0.49) * 0.4)).toFixed(1));
+            const newHum = Number(Math.max(25, Math.min(95, baseHum + (Math.random() - 0.49) * 0.8)).toFixed(1));
+            const newSoil = Number(Math.max(15, Math.min(95, baseSoil + (Math.random() - 0.5) * 0.5)).toFixed(1));
+            const newWater = Number(Math.max(10, Math.min(100, baseWater + (Math.random() - 0.52) * 0.2)).toFixed(1));
+            const newMotion = Math.random() < 0.18;
+
+            const nextReading: SensorReading = {
+              id: Date.now(),
+              device_id: prev?.device_id || 'LIVE_STREAM_01',
+              temperature: newTemp,
+              humidity: newHum,
+              soil_moisture: newSoil,
+              water_level: newWater,
+              motion: newMotion,
+              is_simulated: true,
+              created_at: new Date().toISOString(),
+            };
+
+            setHistory((h) => [nextReading, ...h.slice(0, 49)]);
+            return nextReading;
+          });
+        } else {
+          await loadTelemetry(false);
+        }
       }, 3500);
     }
 
     return () => {
+      cancelled = true;
       if (pollIntervalRef.current) {
         window.clearInterval(pollIntervalRef.current);
       }
     };
-  }, [loadTelemetry, autoRefresh]);
+  }, [loadTelemetry, autoRefresh, isConnected, isLiveStreamRunning, isHosted]);
 
   // Handle URL change
   const handleSaveUrl = (e: React.FormEvent) => {
@@ -105,6 +182,78 @@ export function FieldSensorsPage() {
     const updated = { ...thresholds, [key]: val };
     setThresholds(updated);
     saveSensorThresholds(updated);
+  };
+
+  // Toggle or start continuous live stream
+  const handleToggleLiveStream = async () => {
+    const nextState = !isLiveStreamRunning;
+    setIsLiveStreamRunning(nextState);
+    if (nextState && !latestReading) {
+      const reading = await triggerSimulatedReading();
+      setLatestReading(reading);
+      setHistory((prev) => [reading, ...prev]);
+    }
+    setActionNotice(nextState ? 'Continuous live telemetry stream running' : 'Live stream paused');
+    setTimeout(() => setActionNotice(null), 3000);
+  };
+
+  // Connect USB Arduino directly in browser via Web Serial API
+  const handleConnectUsbSerial = async () => {
+    if (typeof navigator === 'undefined' || !('serial' in navigator)) {
+      alert(
+        'Web Serial API is not supported in this browser. Please use Chrome, Edge, or Chrome on Android with a USB OTG cable to connect directly to the microcontroller.'
+      );
+      return;
+    }
+    try {
+      const port = await (navigator as any).serial.requestPort();
+      await port.open({ baudRate: 115200 });
+      serialPortRef.current = port;
+      setIsSerialConnected(true);
+      setActionNotice('Connected directly to USB Arduino hardware sensor!');
+      setTimeout(() => setActionNotice(null), 4000);
+
+      const textDecoder = new TextDecoderStream();
+      port.readable.pipeTo(textDecoder.writable);
+      const reader = textDecoder.readable.getReader();
+
+      let buffer = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value) {
+          buffer += value;
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            try {
+              const data = JSON.parse(trimmed);
+              const reading: SensorReading = {
+                id: Date.now(),
+                device_id: data.device_id || 'USB_ARDUINO_01',
+                temperature: Number(data.temperature ?? data.temp ?? 25.0),
+                humidity: Number(data.humidity ?? data.hum ?? 55.0),
+                soil_moisture: Number(data.soil_moisture ?? data.soil ?? 50.0),
+                water_level: Number(data.water_level ?? data.water ?? 75.0),
+                motion: Boolean(data.motion),
+                is_simulated: false,
+                created_at: new Date().toISOString(),
+              };
+              setLatestReading(reading);
+              setHistory((prev) => [reading, ...prev.slice(0, 49)]);
+            } catch {
+              // Ignore non-JSON line
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name !== 'NotFoundError') {
+        alert(`Serial connection failed: ${err.message}`);
+      }
+    }
   };
 
   // Generate simulated reading
@@ -140,6 +289,11 @@ export function FieldSensorsPage() {
   // Stress calculation for latest reading
   const stress = latestReading
     ? computeStressLevel(latestReading.temperature, latestReading.humidity, thresholds)
+    : null;
+
+  // Real-time Crop Condition evaluation based on Temperature, Humidity, Soil Moisture, and Thresholds
+  const cropCondition = latestReading
+    ? evaluateCropCondition(latestReading, thresholds, selectedCrop)
     : null;
 
   // Format relative timestamp
@@ -217,7 +371,29 @@ export function FieldSensorsPage() {
 
       {/* Quick Action Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-card border border-border">
-        <div className="flex flex-wrap items-center gap-2">
+          {/* Continuous Live Stream Toggle Button */}
+          <button
+            type="button"
+            onClick={handleToggleLiveStream}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer border shadow-xs ${
+              isLiveStreamRunning
+                ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
+                : 'bg-muted text-foreground border-border hover:bg-muted/80'
+            }`}
+          >
+            {isLiveStreamRunning ? (
+              <>
+                <Pause size={14} />
+                <span>Live Stream (Active)</span>
+              </>
+            ) : (
+              <>
+                <Play size={14} />
+                <span>Start Live Stream</span>
+              </>
+            )}
+          </button>
+
           {/* Simulate Reading Button */}
           <button
             type="button"
@@ -227,6 +403,21 @@ export function FieldSensorsPage() {
           >
             <PlusCircle size={15} />
             <span>{isSimulating ? 'Injecting…' : 'Generate Simulated Test Reading'}</span>
+          </button>
+
+          {/* Connect USB Hardware Directly via Web Serial */}
+          <button
+            type="button"
+            onClick={handleConnectUsbSerial}
+            title="Connect USB Arduino / microcontroller directly in browser (Chrome/Edge/Android)"
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+              isSerialConnected
+                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+                : 'border-border hover:bg-muted text-foreground'
+            }`}
+          >
+            <Cpu size={14} />
+            <span>{isSerialConnected ? 'USB Sensor Connected' : 'Connect USB Hardware'}</span>
           </button>
 
           {/* Thresholds Drawer Button */}
@@ -248,7 +439,6 @@ export function FieldSensorsPage() {
             <Smartphone size={14} />
             <span>Phone Wi-Fi Guide</span>
           </button>
-        </div>
 
         <div className="flex items-center gap-3 text-xs">
           <label className="flex items-center gap-2 cursor-pointer text-muted-foreground hover:text-foreground">
@@ -459,6 +649,159 @@ export function FieldSensorsPage() {
               )}
             </div>
           </div>
+
+          {/* Crop Condition & Agronomic Health Assessment Card */}
+          {cropCondition && (
+            <div data-testid="crop-condition-card" className="p-5 rounded-2xl bg-card border border-border space-y-4 shadow-xs">
+              {/* Header: Crop Selector & Identification */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-2xl shrink-0">
+                    {cropCondition.crop.icon}
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-heading text-lg font-bold text-foreground">
+                        {cropCondition.crop.name} Condition Assessment
+                      </h2>
+                      <span className="text-xs text-muted-foreground italic hidden sm:inline">
+                        ({cropCondition.crop.scientificName})
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Real-time crop health evaluation based on temperature, humidity, soil moisture &amp; configurable thresholds
+                    </p>
+                  </div>
+                </div>
+
+                {/* Crop Profile Dropdown */}
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <label htmlFor="crop-select-field" className="text-xs font-semibold text-muted-foreground shrink-0">
+                    Selected Crop:
+                  </label>
+                  <select
+                    id="crop-select-field"
+                    value={selectedCrop}
+                    onChange={(e) => setSelectedCrop(e.target.value)}
+                    className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-xs"
+                  >
+                    {Object.values(CROP_PROFILES).map((cp) => (
+                      <option key={cp.id} value={cp.id}>
+                        {cp.icon} {cp.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Status Banner with Health Score */}
+              <div
+                className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center md:justify-between gap-3 ${
+                  cropCondition.status === 'optimal'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-200'
+                    : cropCondition.status === 'warning'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-200'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-950 dark:text-rose-200'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center font-heading font-extrabold text-xl shrink-0 shadow-xs ${
+                      cropCondition.status === 'optimal'
+                        ? 'bg-emerald-600 text-white'
+                        : cropCondition.status === 'warning'
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-rose-600 text-white animate-pulse'
+                    }`}
+                  >
+                    {cropCondition.healthScore}%
+                  </div>
+                  <div>
+                    <div className="font-heading text-base font-bold flex flex-wrap items-center gap-2">
+                      <span>{cropCondition.conditionTitle}</span>
+                      <span
+                        className={`text-[10px] px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
+                          cropCondition.status === 'optimal'
+                            ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30'
+                            : cropCondition.status === 'warning'
+                            ? 'bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30'
+                            : 'bg-rose-500/20 text-rose-800 dark:text-rose-300 border border-rose-500/30'
+                        }`}
+                      >
+                        {cropCondition.status.toUpperCase()}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {cropCondition.summary}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Quick Alerts Pills */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {cropCondition.irrigationNeeded && (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/30 animate-pulse">
+                      💧 Irrigation Needed
+                    </span>
+                  )}
+                  {cropCondition.diseaseRisk === 'high' && (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                      ⚠️ High Fungal Threat
+                    </span>
+                  )}
+                  {cropCondition.status === 'optimal' && (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                      ✓ Vigorous Comfort
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* 4-Parameter Metric Diagnostics Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {cropCondition.metrics.map((m) => (
+                  <div key={m.metric} className="p-3.5 rounded-xl bg-muted/40 border border-border space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-foreground">{m.label}</span>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          m.status === 'optimal'
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                            : m.status === 'critical'
+                            ? 'bg-rose-500/15 text-rose-700 dark:text-rose-400 font-extrabold'
+                            : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                        }`}
+                      >
+                        {m.status.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="font-heading text-xl font-black text-foreground">
+                      {m.currentValue.toFixed(1)} {m.unit}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      {m.message}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Actionable Agronomic Guidance for Farmer */}
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-primary">
+                  <Sprout size={16} />
+                  <span>Agronomic Guidance for {cropCondition.crop.name} (Based on Real-Time Telemetry &amp; Thresholds)</span>
+                </div>
+                <ul className="space-y-1 text-xs text-foreground">
+                  {cropCondition.recommendations.map((rec, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-primary font-bold leading-tight">•</span>
+                      <span>{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
 
           {/* Metric Cards Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -747,12 +1090,30 @@ export function FieldSensorsPage() {
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
               type="button"
+              onClick={handleToggleLiveStream}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-on-primary hover:bg-primary-dark transition-colors cursor-pointer shadow-xs"
+            >
+              <Play size={15} />
+              <span>Start Continuous Live Telemetry Stream</span>
+            </button>
+
+            <button
+              type="button"
               onClick={handleSimulate}
               disabled={isSimulating}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-on-primary hover:bg-primary-dark transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-xs font-medium hover:bg-muted text-foreground transition-colors cursor-pointer"
             >
               <PlusCircle size={15} />
-              <span>Generate Simulated Test Reading</span>
+              <span>{isSimulating ? 'Injecting…' : 'Generate Simulated Test Reading'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleConnectUsbSerial}
+              className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted text-foreground transition-colors cursor-pointer"
+            >
+              <Cpu size={14} />
+              <span>Connect USB Hardware Directly</span>
             </button>
 
             <button

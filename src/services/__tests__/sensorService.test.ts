@@ -10,6 +10,8 @@ import {
   fetchReadingsHistory,
   triggerSimulatedReading,
   checkLocalServiceHealth,
+  evaluateCropCondition,
+  CROP_PROFILES,
 } from '../sensorService';
 
 describe('sensorService - Environmental Stress Level Evaluation', () => {
@@ -178,3 +180,78 @@ describe('sensorService - API operations', () => {
     expect(health.message).toContain('Network request failed');
   });
 });
+
+describe('sensorService - Crop Condition Evaluation', () => {
+  it('correctly provides crop profiles for major crops', () => {
+    expect(CROP_PROFILES.tomato).toBeDefined();
+    expect(CROP_PROFILES.rice).toBeDefined();
+    expect(CROP_PROFILES.wheat).toBeDefined();
+    expect(CROP_PROFILES.cotton).toBeDefined();
+    expect(CROP_PROFILES.chilli).toBeDefined();
+    expect(CROP_PROFILES.tomato.scientificName).toBe('Solanum lycopersicum');
+  });
+
+  it('evaluates optimal growing conditions for tomato', () => {
+    const reading = {
+      temperature: 24.0,
+      humidity: 55.0,
+      soil_moisture: 52.0,
+      water_level: 80.0,
+    };
+    const res = evaluateCropCondition(reading, DEFAULT_THRESHOLDS, 'tomato');
+    expect(res.status).toBe('optimal');
+    expect(res.healthScore).toBeGreaterThanOrEqual(80);
+    expect(res.irrigationNeeded).toBe(false);
+    expect(res.diseaseRisk).toBe('low');
+  });
+
+  it('detects severe heat stress and generates shade/cooling recommendations', () => {
+    const reading = {
+      temperature: 38.0,
+      humidity: 45.0,
+      soil_moisture: 50.0,
+      water_level: 60.0,
+    };
+    const res = evaluateCropCondition(reading, DEFAULT_THRESHOLDS, 'tomato');
+    expect(res.status).toBe('critical');
+    expect(res.conditionTitle).toContain('Heat Stress');
+    expect(res.recommendations.some((r) => r.includes('shade netting'))).toBe(true);
+  });
+
+  it('detects drought stress and triggers urgent irrigation advice', () => {
+    const reading = {
+      temperature: 28.0,
+      humidity: 40.0,
+      soil_moisture: 20.0,
+      water_level: 50.0,
+    };
+    const res = evaluateCropCondition(reading, DEFAULT_THRESHOLDS, 'tomato');
+    expect(res.irrigationNeeded).toBe(true);
+    expect(res.recommendations.some((r) => r.includes('Urgent irrigation required'))).toBe(true);
+  });
+
+  it('detects root waterlogging when soil moisture is saturated', () => {
+    const reading = {
+      temperature: 26.0,
+      humidity: 60.0,
+      soil_moisture: 88.0,
+      water_level: 85.0,
+    };
+    const res = evaluateCropCondition(reading, DEFAULT_THRESHOLDS, 'chilli');
+    expect(res.recommendations.some((r) => r.includes('Halt all watering'))).toBe(true);
+    expect(res.metrics.find((m) => m.metric === 'soil_moisture')?.status).toBe('critical');
+  });
+
+  it('detects high fungal disease risk when humidity is saturated', () => {
+    const reading = {
+      temperature: 27.0,
+      humidity: 92.0,
+      soil_moisture: 55.0,
+      water_level: 70.0,
+    };
+    const res = evaluateCropCondition(reading, DEFAULT_THRESHOLDS, 'tomato');
+    expect(res.diseaseRisk).toBe('high');
+    expect(res.recommendations.some((r) => r.includes('bio-fungicide'))).toBe(true);
+  });
+});
+
