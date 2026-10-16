@@ -4,9 +4,12 @@ import type { LocalClassificationResult } from './localInference';
 const DB_NAME = 'plant_doctor_offline_db';
 const DB_VERSION = 2;
 
+const BASE_PATH = import.meta.env.BASE_URL || '/';
+const normalizedBase = BASE_PATH.endsWith('/') ? BASE_PATH : `${BASE_PATH}/`;
+
 export const MODEL_CACHE_NAME = 'plant-doctor-models-v1';
-export const MODEL_URL = '/models/mobilenet_v2_plant_disease.onnx';
-export const MODEL_METADATA_URL = '/models/model_metadata.json';
+export const MODEL_URL = `${normalizedBase}models/mobilenet_v2_plant_disease.onnx`;
+export const MODEL_METADATA_URL = `${normalizedBase}models/model_metadata.json`;
 export const EXPECTED_MODEL_SHA256 = 'c209f96f0a87a265b0ff6765c2e84d48038a7d8b8692d7629445b4513c344eb7';
 export const EXPECTED_MODEL_SIZE = 9227028;
 
@@ -666,10 +669,10 @@ export async function downloadAndInstallOfflineModel(
     // Pre-cache WASM runtime files if reachable
     try {
       const wasmAssets = [
-        '/ort/ort-wasm-simd-threaded.wasm',
-        '/ort/ort-wasm-simd-threaded.mjs',
-        '/ort/ort-wasm.wasm',
-        '/ort/ort-wasm.mjs',
+        `${normalizedBase}ort/ort-wasm-simd-threaded.wasm`,
+        `${normalizedBase}ort/ort-wasm-simd-threaded.mjs`,
+        `${normalizedBase}ort/ort-wasm.wasm`,
+        `${normalizedBase}ort/ort-wasm.mjs`,
       ];
       for (const wasmUrl of wasmAssets) {
         try {
@@ -968,7 +971,10 @@ export async function autoSeedBundledPacks(): Promise<void> {
     const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
     if (!origin || origin === 'null') return;
 
-    const packUrls = [`${origin}/packs/pack-veg-001.json`, `${origin}/packs/pack-rice-001.json`];
+    const packUrls = [
+      `${normalizedBase}packs/pack-veg-001.json`,
+      `${normalizedBase}packs/pack-rice-001.json`,
+    ];
     for (const url of packUrls) {
       try {
         const res = await fetch(url);

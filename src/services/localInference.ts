@@ -11,7 +11,9 @@ import { getModelArrayBuffer } from './offlineStorage';
 
 // Configure onnxruntime-web for maximum compatibility on mobile devices
 if (typeof window !== 'undefined') {
-  ort.env.wasm.wasmPaths = '/ort/';
+  const BASE_PATH = import.meta.env.BASE_URL || '/';
+  const normalizedBase = BASE_PATH.endsWith('/') ? BASE_PATH : `${BASE_PATH}/`;
+  ort.env.wasm.wasmPaths = `${normalizedBase}ort/`;
   ort.env.wasm.numThreads = 1; // Single thread avoids SharedArrayBuffer cross-origin isolation restrictions
 }
 

@@ -1,17 +1,44 @@
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
+import path from 'node:path'
+import fs from 'node:fs'
+
+function githubPagesSpa(): Plugin {
+  return {
+    name: 'github-pages-spa',
+    closeBundle() {
+      const distDir = path.resolve(process.cwd(), 'dist')
+      const indexPath = path.join(distDir, 'index.html')
+      const notFoundPath = path.join(distDir, '404.html')
+      const nojekyllPath = path.join(distDir, '.nojekyll')
+
+      try {
+        if (fs.existsSync(indexPath)) {
+          fs.copyFileSync(indexPath, notFoundPath)
+          console.log('✓ Created dist/404.html for GitHub Pages SPA routing')
+        }
+        fs.writeFileSync(nojekyllPath, '')
+        console.log('✓ Created dist/.nojekyll for GitHub Pages asset serving')
+      } catch (err) {
+        console.warn('githubPagesSpa warning:', err)
+      }
+    },
+  }
+}
 
 export default defineConfig({
+  base: '/AIBot/',
   plugins: [
     react(),
     tailwindcss(),
+    githubPagesSpa(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'icons/*.png'],
       manifest: {
-        id: '/',
+        id: '/AIBot/',
         name: 'Plant Doctor',
         short_name: 'PlantDoc',
         description: 'Offline-first, evidence-grounded agricultural assistant',
@@ -19,21 +46,21 @@ export default defineConfig({
         background_color: '#F0FDF4',
         display: 'standalone',
         orientation: 'portrait-primary',
-        scope: '/',
-        start_url: '/',
+        scope: '/AIBot/',
+        start_url: '/AIBot/',
         icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-          { src: '/icons/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
-          { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-          { src: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+          { src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
         ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 35 * 1024 * 1024,
         // Serve the cached app shell for any in-app navigation while offline.
-        navigateFallback: 'index.html',
+        navigateFallback: '/AIBot/index.html',
         // Never fall back to the shell for API requests (kept on the network).
         navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,

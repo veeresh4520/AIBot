@@ -145,7 +145,9 @@ export async function listKnowledgePacks(): Promise<KnowledgePack[]> {
     }
     // Fallback to static bundled packs index if remote API is unreachable
     try {
-      const res = await fetch('/packs/index.json');
+      const BASE_PATH = import.meta.env.BASE_URL || '/';
+      const normalizedBase = BASE_PATH.endsWith('/') ? BASE_PATH : `${BASE_PATH}/`;
+      const res = await fetch(`${normalizedBase}packs/index.json`);
       if (res.ok) {
         const data = await res.json();
         return Array.isArray(data) ? data : data.value || [];
@@ -180,7 +182,9 @@ export async function downloadKnowledgePackPayload(packId: string): Promise<Pack
     }
     // Fallback to static bundled pack payload
     try {
-      const res = await fetch(`/packs/${encodeURIComponent(packId)}.json`);
+      const BASE_PATH = import.meta.env.BASE_URL || '/';
+      const normalizedBase = BASE_PATH.endsWith('/') ? BASE_PATH : `${BASE_PATH}/`;
+      const res = await fetch(`${normalizedBase}packs/${encodeURIComponent(packId)}.json`);
       if (res.ok) {
         return (await res.json()) as PackDownloadPayload;
       }
