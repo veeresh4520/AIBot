@@ -26,6 +26,7 @@ Plant Doctor is an offline-first, evidence-grounded agricultural intelligence pl
 
 ## 2. Feature & Architectural Status Matrix
 
+| **PHASE 2: RELIABLE OFFLINE MODEL & RUNTIME ASSET DELIVERY** | `PASS — VERIFIED` | Trusted versioned manifest (`TRUSTED_OFFLINE_ASSETS`), cryptographic SHA-256 pre-commit verification, single-point Cache Storage integration (`plant-doctor-models-v1`, zero duplicate binary storage), streaming progress with cancellation (`AbortSignal`) and auto-retry, non-destructive storage quota detection (`StorageQuotaExceededError`), truthful readiness states (`isAppCached`, `isRuntimeAvailable`, `isModelAvailable`, `isIntegrityVerified`, `lastValidationResult`), and verified MIME compliance (`application/wasm`, `application/octet-stream`, `application/json`, `text/javascript`). |
 | **FEATURE 1: TRUE OFFLINE MODE** | `PASS — VERIFIED` | Zero-network browser execution via Vite PWA Service Worker caching, on-device MobileNetV2 ONNX inference via `onnxruntime-web` WebAssembly, IndexedDB evidence retrieval from installed knowledge packs, Indic localized explanations (`en`, `hi`, `te`, `ta`), SHA-256 cryptographic model verification, honest offline freshness caveats, and comprehensive "Prepare for Offline Use" download flow. |
 | **FEATURE 2: PHOTO-ONLY PLANT DIAGNOSIS** | `PASS — VERIFIED` | Farmer takes or selects a plant photo without typing a question or selecting a crop. Preprocessing checks filter low-variance or uninformative images. Real vision classifier identifies crop and condition, retrieves grounded ICAR/TNAU/USDA research evidence, executes through the Evidence Status Gate, and outputs actionable guidance with differential candidate predictions and verbatim citations. |
 | **MongoDB Atlas Connection & Authentication** | `PASS — VERIFIED` | Live cluster ping verified. Database `plant_doctor` contains 4 collections (`sources`, `evidence_chunks`, `knowledge_packs`, `evaluation_cases`). Authenticated via `certifi` TLS with masked credentials. |
@@ -91,12 +92,13 @@ Applicability Violations (Hybrid + Gate): 0 (100% prevented by gate)
   - `test_vector_search_atlas.py` (8 tests) — `PASS — VERIFIED`
 
 ### Frontend Tests (`vitest run`)
-- **Total Test Files:** 15
-- **Total Tests:** 73
-- **Passed:** 73 (`100%`)
-- **Duration:** 5.23s
+- **Total Test Files:** 16
+- **Total Tests:** 90
+- **Passed:** 90 (`100%`)
+- **Duration:** 1.77s
 - **Suites:**
-  - `src/__tests__/offline_photo_diagnosis.test.ts` (11 tests) — `PASS — VERIFIED`
+  - `src/services/__tests__/assetDelivery.test.ts` (16 tests) — `PASS — VERIFIED`
+  - `src/__tests__/offline_photo_diagnosis.test.ts` (12 tests) — `PASS — VERIFIED`
   - `src/__tests__/multilingual_localization_full_suite.test.tsx` (13 tests) — `PASS — VERIFIED`
   - `src/__tests__/multilingual_voice_camera.test.tsx` (11 tests) — `PASS — VERIFIED`
   - `src/api/__tests__/client.test.ts` (2 tests) — `PASS — VERIFIED`
@@ -114,7 +116,7 @@ Applicability Violations (Hybrid + Gate): 0 (100% prevented by gate)
 
 ### Production Compilation (`npm run build`)
 - **TypeScript:** `tsc -b` passed with 0 errors.
-- **Vite Production Bundler:** Built in 1.19s. Precached 19 entries (1112.56 KiB) for offline PWA operation.
+- **Vite Production Bundler:** Built in 1.48s. Precached 15 entries (10747.25 KiB) for offline PWA operation.
 
 ---
 
@@ -137,4 +139,30 @@ Applicability Violations (Hybrid + Gate): 0 (100% prevented by gate)
 - **Evidence Status Gate Passing:** `PASS — VERIFIED` (Responses pass the 5-status gate with independent status checks).
 - **Differential Candidates Surfacing:** `PASS — VERIFIED` (Top 3 candidate diagnoses with calibrated confidence percentages displayed to farmer).
 - **Scientific Abstention:** `PASS — VERIFIED` (Luminance/variance filter detects dark/overexposed/uninformative images; calibrated thresholds abstain on confidence < 20% or entropy > 3.2).
+
+---
+
+## 6. Phase 2: Reliable Offline Model & Runtime Asset Delivery Verification
+
+**Status:** `PASS — VERIFIED`
+
+### Asset Specification & Manifest Table
+| Asset ID | Relative Path | Size (Bytes) | SHA-256 Checksum | Content-Type | Role |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `mobilenet_v2_onnx` | `models/mobilenet_v2_plant_disease.onnx` | 9,227,028 (~8.80 MB) | `c209f96f0a87a265b0ff6765c2e84d48038a7d8b8692d7629445b4513c344eb7` | `application/octet-stream` | MobileNetV2 ONNX vision classifier |
+| `mobilenet_v2_metadata` | `models/model_metadata.json` | 7,218 (~7.05 KB) | `38584a0ba46b7a81b72546a11d5dd6b69a6f966f3db7482b2090349197daf1ea` | `application/json` | Botanical taxonomy & normalization |
+| `ort_wasm_simd_threaded_binary` | `ort/ort-wasm-simd-threaded.wasm` | 14,239,897 (~13.58 MB) | `3398c10d07d229bd91b364548e130e0e51a8e5704b88c7c083ebbeb78842dee2` | `application/wasm` | ONNX WebAssembly CPU SIMD runtime |
+| `ort_wasm_simd_threaded_loader` | `ort/ort-wasm-simd-threaded.mjs` | 24,381 (~23.81 KB) | `e13f7f94fc51b4ca72b12faeb1ee95f4ace6dfbc8939bc718aabdc0a27c4299b` | `text/javascript` | ONNX WebAssembly module loader |
+
+- **Total Delivery Footprint:** 23,498,524 bytes (~22.41 MB).
+- **Cloudflare Pages Limit:** All assets are strictly < 25 MiB.
+- **Cache Storage Strategy:** Single-point persistence in `plant-doctor-models-v1` (zero binary duplication).
+- **Non-Destructive Storage Quota:** `StorageQuotaExceededError` explains recovery safely without deleting user knowledge packs.
+- **Truthful Readiness States:** Exposes `isAppCached`, `isRuntimeAvailable`, `isModelAvailable`, `isIntegrityVerified`, and `lastValidationResult`.
+- **Cancellation & Retries:** Streaming download with `AbortSignal` and exponential backoff retry.
+- **Tested Entry Point for Phase 3:**
+  - `getModelArrayBuffer()` in `src/services/localInference.ts`
+  - `getLocalInferenceSession()` in `src/services/localInference.ts`
+  - `getAssetReadinessReport()` in `src/services/assetDelivery.ts`
+
 

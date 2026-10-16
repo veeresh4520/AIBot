@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BookOpen,
@@ -62,7 +62,9 @@ export function LibraryPage() {
   const [readiness, setReadiness] = useState<OfflineAIReadiness | null>(null);
   const [isDownloadingModel, setIsDownloadingModel] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadBytes, setDownloadBytes] = useState<{ loaded: number; total: number }>({ loaded: 0, total: 0 });
   const [modelActionError, setModelActionError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   async function load() {
     try {
@@ -121,14 +123,22 @@ export function LibraryPage() {
   }, []);
 
   async function handlePrepareOfflineAI() {
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setIsDownloadingModel(true);
     setDownloadProgress(0);
+    setDownloadBytes({ loaded: 0, total: 0 });
     setModelActionError(null);
     try {
-      notify('Starting on-device AI model download…', 'info');
-      await downloadAndInstallOfflineModel((percent) => {
-        setDownloadProgress(percent);
-      });
+      notify('Starting on-device AI model and WASM runtime download…', 'info');
+      await downloadAndInstallOfflineModel(
+        (percent, loaded, total) => {
+          setDownloadProgress(percent);
+          setDownloadBytes({ loaded, total });
+        },
+        { signal: controller.signal }
+      );
 
       // If no knowledge packs are currently installed, install the first available pack
       const installed = await activeService.listPacks();
@@ -145,12 +155,24 @@ export function LibraryPage() {
       setReadiness(updated);
       notify('On-device plant diagnosis AI pack prepared and SHA-256 verified!', 'success');
       await load();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to prepare offline model.';
-      setModelActionError(msg);
-      notify(msg, 'error');
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && (err as Error).name === 'AbortError') {
+        notify('Download cancelled.', 'info');
+      } else {
+        const msg = err instanceof Error ? err.message : 'Failed to prepare offline model.';
+        setModelActionError(msg);
+        notify(msg, 'error');
+      }
     } finally {
       setIsDownloadingModel(false);
+      abortControllerRef.current = null;
+    }
+  }
+
+  function handleCancelDownload() {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
   }
 
@@ -271,12 +293,12 @@ export function LibraryPage() {
 
         {/* 3-Pillar Resource Readiness Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-          {/* Pillar 1: Model */}
+          {/* Pillar 1: Model & WASM Runtime */}
           <div className="rounded-xl border border-border/80 bg-background/80 p-3.5 space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-foreground flex items-center gap-1.5">
                 <Cpu size={14} className="text-primary" />
-                On-Device AI Model
+                On-Device AI &amp; Runtime
               </span>
               {readiness?.isModelReady ? (
                 <span className="text-emerald-700 font-medium">Ready</span>
@@ -285,11 +307,15 @@ export function LibraryPage() {
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              MobileNetV2 (8.8 MB) · 38 plant classes
+              MobileNetV2 (8.8 MB) · WASM CPU (14.2 MB)
             </p>
             <div className="text-[11px] text-muted-foreground flex items-center gap-1 pt-0.5">
-              <ShieldCheck size={12} className={readiness?.isModelReady ? 'text-emerald-600' : 'text-zinc-400'} />
-              <span>SHA-256: {EXPECTED_MODEL_SHA256.slice(0, 10)}…</span>
+              <ShieldCheck size={12} className={readiness?.isIntegrityVerified || readiness?.isModelReady ? 'text-emerald-600' : 'text-zinc-400'} />
+              <span>
+                {readiness?.isIntegrityVerified
+                  ? 'SHA-256 cryptographically verified'
+                  : `SHA-256: ${EXPECTED_MODEL_SHA256.slice(0, 10)}…`}
+              </span>
             </div>
           </div>
 
@@ -332,13 +358,24 @@ export function LibraryPage() {
 
         {/* Progress Bar when downloading */}
         {isDownloadingModel && (
-          <div className="space-y-1.5 pt-2">
+          <div className="space-y-2 pt-2 bg-background/50 p-3 rounded-xl border border-primary/20">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-foreground flex items-center gap-2">
                 <Loader2 size={13} className="animate-spin text-primary" />
-                {downloadProgress < 100 ? 'Downloading MobileNetV2 ONNX model…' : t.offlineVerifying}
+                {downloadProgress < 100
+                  ? `Downloading Vision Model & WASM Runtime (${formatBytes(downloadBytes.loaded)} / ${formatBytes(downloadBytes.total || 23498524)})`
+                  : t.offlineVerifying}
               </span>
-              <span className="font-mono text-muted-foreground">{downloadProgress}%</span>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-muted-foreground">{downloadProgress}%</span>
+                <button
+                  type="button"
+                  onClick={handleCancelDownload}
+                  className="px-2 py-0.5 text-xs text-destructive hover:bg-destructive/10 rounded cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
             <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
               <div

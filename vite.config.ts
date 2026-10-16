@@ -69,7 +69,7 @@ export default defineConfig({
           {
             urlPattern: /\/models\/.*\.(?:onnx|json)$/i,
             handler: 'CacheFirst',
-            options: { cacheName: 'onnx-models-v1', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+            options: { cacheName: 'plant-doctor-models-v1', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
           },
           {
             urlPattern: /\/packs\/.*\.json$/i,
@@ -79,7 +79,7 @@ export default defineConfig({
           {
             urlPattern: /\/ort\/.*\.(?:wasm|mjs|js)$/i,
             handler: 'CacheFirst',
-            options: { cacheName: 'ort-wasm-runtime-v1', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+            options: { cacheName: 'plant-doctor-models-v1', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 } },
           },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

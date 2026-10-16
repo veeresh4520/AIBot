@@ -1,8 +1,16 @@
 import type { AnswerResult, EvidenceChunk, KnowledgePack, MultimodalAssessmentResult, Source } from '../models/types';
 import type { LocalClassificationResult } from './localInference';
+import {
+  downloadAllOfflineAssets,
+  validateAllOfflineAssets,
+  getAssetReadinessReport,
+  getOfflineAssetArrayBuffer,
+  removeOfflineAssets,
+  type ValidationDetail,
+} from './assetDelivery';
 
 const DB_NAME = 'plant_doctor_offline_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const BASE_PATH = import.meta.env.BASE_URL || '/';
 const normalizedBase = BASE_PATH.endsWith('/') ? BASE_PATH : `${BASE_PATH}/`;
@@ -45,6 +53,14 @@ export interface OfflineAIReadiness {
   modelMeta: ModelMeta | null;
   installedPacks: KnowledgePack[];
   systemState?: SystemOperationalState;
+  isRuntimeAvailable?: boolean;
+  isModelAvailable?: boolean;
+  isIntegrityVerified?: boolean;
+  lastValidationResult?: {
+    timestamp: string;
+    valid: boolean;
+    details: Record<string, ValidationDetail>;
+  } | null;
 }
 
 /** Computes the strict 7-state operational status */
@@ -169,6 +185,9 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('model_meta')) {
         db.createObjectStore('model_meta', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('asset_manifest_state')) {
+        db.createObjectStore('asset_manifest_state', { keyPath: 'id' });
       }
     };
 
@@ -599,104 +618,32 @@ export async function computeSha256ArrayBuffer(buffer: ArrayBuffer): Promise<str
 }
 
 /**
- * Downloads and installs the on-device plant disease AI model into Cache Storage
- * after strictly verifying its SHA-256 checksum and size.
+ * Downloads and installs the on-device plant disease AI model and WASM runtime
+ * into Cache Storage after strictly verifying SHA-256 checksums and sizes.
  */
 export async function downloadAndInstallOfflineModel(
-  onProgress?: (percent: number, loaded: number, total: number) => void
+  onProgress?: (percent: number, loaded: number, total: number) => void,
+  options?: { signal?: AbortSignal; forceRedownload?: boolean }
 ): Promise<ModelMeta> {
-  // 1. Fetch model binary with streaming progress
-  const response = await fetch(MODEL_URL);
-  if (!response.ok) {
-    throw new Error(`Failed to download plant disease model weights: HTTP ${response.status}`);
-  }
-
-  const contentLength = Number(response.headers.get('content-length')) || EXPECTED_MODEL_SIZE;
-  const reader = response.body?.getReader();
-
-  let receivedLength = 0;
-  const chunks: Uint8Array[] = [];
-
-  if (reader) {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        chunks.push(value);
-        receivedLength += value.length;
-        if (onProgress) {
-          const percent = Math.min(100, Math.round((receivedLength / contentLength) * 100));
-          onProgress(percent, receivedLength, contentLength);
-        }
+  // 1. Download and verify all offline assets via trusted manifest engine
+  await downloadAllOfflineAssets({
+    signal: options?.signal,
+    forceRedownload: options?.forceRedownload,
+    onProgress: (p) => {
+      if (onProgress) {
+        onProgress(p.percent, p.bytesLoaded, p.totalBytes);
       }
-    }
-  } else {
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-    chunks.push(new Uint8Array(arrayBuffer));
-    receivedLength = arrayBuffer.byteLength;
-    if (onProgress) onProgress(100, receivedLength, receivedLength);
-  }
+    },
+  });
 
-  // Concatenate chunks into single ArrayBuffer
-  const fullBuffer = new Uint8Array(receivedLength);
-  let position = 0;
-  for (const chunk of chunks) {
-    fullBuffer.set(chunk, position);
-    position += chunk.length;
-  }
-
-  // 2. Validate cryptographic integrity (SHA-256)
-  const actualSha256 = await computeSha256ArrayBuffer(fullBuffer.buffer);
-  if (actualSha256.toLowerCase() !== EXPECTED_MODEL_SHA256.toLowerCase()) {
-    throw new Error(
-      `Model integrity verification failed! Expected SHA-256 ${EXPECTED_MODEL_SHA256}, got ${actualSha256}. Downloaded artifact may be corrupted.`
-    );
-  }
-
-  // 3. Store into persistent Cache Storage
-  if (typeof caches !== 'undefined') {
-    const cache = await caches.open(MODEL_CACHE_NAME);
-    const modelResponse = new Response(fullBuffer.buffer, {
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Length': String(receivedLength),
-        'X-Model-Sha256': actualSha256,
-      },
-    });
-    await cache.put(MODEL_URL, modelResponse);
-
-    // Pre-cache WASM runtime files if reachable
-    try {
-      const wasmAssets = [
-        `${normalizedBase}ort/ort-wasm-simd-threaded.wasm`,
-        `${normalizedBase}ort/ort-wasm-simd-threaded.mjs`,
-        `${normalizedBase}ort/ort-wasm.wasm`,
-        `${normalizedBase}ort/ort-wasm.mjs`,
-      ];
-      for (const wasmUrl of wasmAssets) {
-        try {
-          const wasmRes = await fetch(wasmUrl);
-          if (wasmRes.ok) {
-            await cache.put(wasmUrl, wasmRes);
-          }
-        } catch {
-          // Non-fatal
-        }
-      }
-    } catch (e) {
-      console.warn('Runtime WASM pre-caching non-fatal note:', e);
-    }
-  }
-
-  // 4. Save metadata in IndexedDB store 'model_meta'
+  // 2. Save metadata in IndexedDB store 'model_meta'
   const meta: ModelMeta = {
     id: 'mobilenet_v2_plant_disease',
     name: 'MobileNetV2 Plant Disease Classifier',
     version: '1.0.0',
     filename: 'mobilenet_v2_plant_disease.onnx',
-    sha256: actualSha256,
-    sizeBytes: receivedLength,
+    sha256: EXPECTED_MODEL_SHA256,
+    sizeBytes: EXPECTED_MODEL_SIZE,
     installedAt: new Date().toISOString(),
     status: 'verified',
     modelFamily: 'MobileNetV2',
@@ -704,20 +651,30 @@ export async function downloadAndInstallOfflineModel(
     runtime: 'onnx_wasm',
   };
 
-  const db = await openDB();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction('model_meta', 'readwrite');
-    tx.onerror = () => reject(tx.error);
-    tx.oncomplete = () => resolve();
-    tx.objectStore('model_meta').put(meta);
-  });
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('model_meta', 'readwrite');
+      tx.onerror = () => reject(tx.error);
+      tx.oncomplete = () => resolve();
+      tx.objectStore('model_meta').put(meta);
+    });
+  } catch (err) {
+    console.warn('Metadata save warning:', err);
+  }
 
   return meta;
 }
 
-/** Check if the offline ONNX model is verified and cached locally */
+/** Check if the offline ONNX model and runtime are verified and cached locally */
 export async function isOfflineModelInstalled(): Promise<boolean> {
   try {
+    const validation = await validateAllOfflineAssets();
+    if (validation.valid) {
+      return true;
+    }
+
+    // Fallback: check model binary in cache and metadata
     const db = await openDB();
     const meta: ModelMeta | undefined = await new Promise((resolve, reject) => {
       const tx = db.transaction('model_meta', 'readonly');
@@ -744,7 +701,13 @@ export async function isOfflineModelInstalled(): Promise<boolean> {
 
 /** Retrieve the offline ONNX model binary from Cache Storage or fetch fallback */
 export async function getModelArrayBuffer(): Promise<ArrayBuffer | null> {
-  // 1. Try Cache Storage first (strictly zero-network offline path)
+  // 1. Try AssetDelivery engine first
+  const buf = await getOfflineAssetArrayBuffer('mobilenet_v2_onnx');
+  if (buf && buf.byteLength > 0) {
+    return buf;
+  }
+
+  // 2. Try Cache Storage
   if (typeof caches !== 'undefined') {
     try {
       const cache = await caches.open(MODEL_CACHE_NAME);
@@ -757,7 +720,7 @@ export async function getModelArrayBuffer(): Promise<ArrayBuffer | null> {
     }
   }
 
-  // 2. Fallback to direct fetch if connected
+  // 3. Fallback to direct fetch if connected
   try {
     const res = await fetch(MODEL_URL);
     if (res.ok) {
@@ -770,8 +733,9 @@ export async function getModelArrayBuffer(): Promise<ArrayBuffer | null> {
   return null;
 }
 
-/** Remove the offline ONNX model from Cache Storage and IndexedDB */
+/** Remove the offline ONNX model and runtime assets from Cache Storage and IndexedDB */
 export async function removeOfflineModel(): Promise<void> {
+  await removeOfflineAssets();
   try {
     if (typeof caches !== 'undefined') {
       await caches.delete(MODEL_CACHE_NAME);
@@ -790,7 +754,9 @@ export async function removeOfflineModel(): Promise<void> {
 
 /** Get comprehensive offline readiness state */
 export async function getOfflineAIReadiness(): Promise<OfflineAIReadiness> {
-  const isModelReady = await isOfflineModelInstalled();
+  const assetReport = await getAssetReadinessReport().catch(() => null);
+
+  const isModelReady = assetReport ? assetReport.isModelAvailable : await isOfflineModelInstalled();
   const installedPacks = await listInstalledPacks().catch(() => []);
   const installedPackCount = installedPacks.length;
   const isKnowledgePackReady = installedPackCount > 0;
@@ -820,6 +786,10 @@ export async function getOfflineAIReadiness(): Promise<OfflineAIReadiness> {
     installedPackCount,
     modelMeta,
     installedPacks,
+    isRuntimeAvailable: assetReport?.isRuntimeAvailable ?? false,
+    isModelAvailable: assetReport?.isModelAvailable ?? isModelReady,
+    isIntegrityVerified: assetReport?.isIntegrityVerified ?? false,
+    lastValidationResult: assetReport?.lastValidationResult ?? null,
   };
   readiness.systemState = computeSystemOperationalState(isOnline, isOnline, readiness);
 
