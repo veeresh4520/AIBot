@@ -179,20 +179,41 @@ export async function fetchReadingsHistory(limit = 50): Promise<SensorReading[]>
   return data.readings || [];
 }
 
-/** Trigger simulated test reading on the backend */
+/** Trigger simulated test reading on the backend, with fallback for HTTPS/disconnected testing */
 export async function triggerSimulatedReading(overrides?: Partial<SensorReading>): Promise<SensorReading> {
   const baseUrl = getSensorBackendUrl();
-  const res = await fetch(`${baseUrl}/api/sensor-readings/simulate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(overrides || {}),
-    signal: AbortSignal.timeout(4000),
-  });
-  if (!res.ok) {
-    throw new Error(`Simulation failed: HTTP ${res.status}`);
+  try {
+    const res = await fetch(`${baseUrl}/api/sensor-readings/simulate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(overrides || {}),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.data) {
+        return data.data;
+      }
+    }
+  } catch {
+    // Fallback below
   }
-  const data = await res.json();
-  return data.data;
+
+  // In-memory fallback simulated test reading for hosted HTTPS demo or when Flask is offline
+  const simTemp = overrides?.temperature ?? Number((22.0 + Math.random() * 14.0).toFixed(1));
+  const simHum = overrides?.humidity ?? Number((40.0 + Math.random() * 45.0).toFixed(1));
+  const simMotion = overrides?.motion ?? Math.random() < 0.35;
+  const deviceId = overrides?.device_id ?? 'SIM_FIELD_01';
+
+  return {
+    id: Date.now(),
+    device_id: deviceId,
+    temperature: simTemp,
+    humidity: simHum,
+    motion: Boolean(simMotion),
+    is_simulated: true,
+    created_at: new Date().toISOString(),
+  };
 }
 
 /** Clear all stored readings on the local backend */
